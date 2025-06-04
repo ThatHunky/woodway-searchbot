@@ -1,0 +1,6 @@
+aiogram>=3.4
+google-generativeai
+rapidfuzz
+python-dotenv
+aiofiles
+loguru
