@@ -11,23 +11,7 @@ Rules are **rank‑ordered by priority**: if a more specific document (`CONTRIBU
 
 | Key                   | Description                                                                                                                        |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Mission**           | The WoodSearch Bot assists users in finding and viewing images of wood species stored on a shared network drive, using natural-language requests via Telegram. Its purpose is to make browsing a dynamic, ever-changing folder structure as simple as sending a message—whether in Ukrainian, English, or other supported languages.
-
-Natural-Language Understanding: Leverage Gemini Flash 2.5 to parse user queries (e.g., “Покажи фото дуба” / “Show me oak photos”) and extract the intended wood species or synonyms.
-
-Dynamic Indexing: Continuously scan the mapped network share (every 10 minutes) to build and refresh a JSON index of folder and file paths, ensuring that newly added or removed photos are always discoverable.
-
-Accurate Fuzzy Search: Match extracted species names against folder and filename data using fuzzy algorithms (rapidfuzz) to tolerate typos, alternate spellings, or partial matches.
-
-Fast Photo Delivery: Return up to five relevant images per request, sending them directly in Telegram to minimize waiting time and avoid manual directory browsing.
-
-Multilingual Support: Respond fluidly in Ukrainian and English (and handle queries in other languages as needed), reducing friction for diverse user bases.
-
-Reliability & Maintainability: Run 24/7 in a lightweight Docker container, auto-handle errors with loguru, and allow configuration (paths, refresh intervals, API keys) via environment variables.
-
-User-Friendly Experience: Provide clear feedback—help text on /start, polite “Нічого не знайшов 🤷” when no matches are found, and concise results otherwise—so that even non-technical users can retrieve wood photos effortlessly.
-
-In essence, this bot’s mission is to turn a sprawling, constantly shifting collection of wood-species images into a simple conversational search—bridging natural language and network drives to deliver exactly the photos users need. |                                                                   
+| **Mission**           | Serve wood‐species images via natural‐language Telegram queries using dynamic share indexing and Gemini Flash 2.5. |                                                                   
 | **Primary Languages** | Detected automatically. Use this *fallback preference* when creating new files: **Python > TypeScript > Go > Rust > Java > Shell** |
 | **Execution Model**   | Library modules **preferred** → short‑lived CLIs → long‑running services.                                                          |
 | **Online Components** | Anything that must stay online (bot, API, worker) **MUST** ship with a minimal **Docker/OCI** spec.                                |
