@@ -15,6 +15,7 @@ router = Router()
 
 _force_index_cooldowns: dict[int, float] = {}
 _COOLDOWN_SECONDS = 60
+_BROAD_QUERY_THRESHOLD = 50
 
 
 def _sanitize(text: str) -> str:
@@ -56,9 +57,7 @@ async def index_status_cmd(message: Message, indexer: Indexer) -> None:
         if indexer.last_index_time
         else "never"
     )
-    await _safe_answer(
-        message, f"Keywords: {len(indexer.index)}\nLast updated: {last}"
-    )
+    await _safe_answer(message, f"Keywords: {len(indexer.index)}\nLast updated: {last}")
 
 
 @router.message(F.text)
@@ -74,6 +73,13 @@ async def handle_text(
         return
 
     for kw in keywords:
+        total = len(indexer.index.get(kw, []))
+        if total > _BROAD_QUERY_THRESHOLD:
+            await _safe_answer(
+                message,
+                f"Too many results for '{kw}'. Please provide more details or another keyword.",
+            )
+            continue
         results = search_keyword(kw, indexer.index)
         if not results:
             continue
