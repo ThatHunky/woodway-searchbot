@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libjpeg62-turbo libwebp6 libtiff5 && \
+        libjpeg62-turbo libwebp7 libtiff6 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m bot

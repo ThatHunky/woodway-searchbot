@@ -5,12 +5,4 @@ services:
     env_file: .env
     volumes:
       - ./index.json:/app/index.json
-      - woodshare:/data/share:ro
     restart: unless-stopped
-volumes:
-  woodshare:
-    driver: local
-    driver_opts:
-      type: cifs
-      o: username=${CIFS_USER},password=${CIFS_PASS},rw,uid=1000,gid=1000
-      device: //HOST/WOOD

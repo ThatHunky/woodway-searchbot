@@ -21,3 +21,29 @@ The service will create `index.json` in the container and update it every ten mi
 
 ## Image Formats
 Supported extensions: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.tif`.
+
+## Testing
+The project includes a comprehensive test suite for all bot components. You can run the tests in several ways:
+
+### Running Tests Locally
+To run tests locally, execute:
+
+```bash
+python -m unittest discover -s bot/tests
+```
+
+### Running Tests with Docker
+To run tests in a Docker container, use the test-specific Docker Compose configuration:
+
+```bash
+docker compose -f docker-compose.test.yml up
+```
+
+### Test Structure
+- `bot/tests/test_search.py`: Tests for the search functionality
+- `bot/tests/test_config.py`: Tests for configuration loading
+- `bot/tests/test_indexer.py`: Tests for the file indexer
+- `bot/tests/test_handlers.py`: Tests for Telegram message handlers
+- `bot/tests/test_gemini.py`: Tests for Gemini API client
+
+The tests use mock objects to avoid making actual API calls during testing.

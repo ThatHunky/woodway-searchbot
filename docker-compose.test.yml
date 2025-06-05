@@ -1,0 +1,15 @@
+version: '3'
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    command: python -m bot.tests.run_tests
+    environment:
+      - BOT_TOKEN=test_token
+      - GEMINI_API_KEY=test_api_key
+      - SHARE_PATH=/app/test_data
+      - INDEX_REFRESH_MINUTES=5 
