@@ -4,3 +4,4 @@ rapidfuzz
 python-dotenv
 aiofiles
 loguru
+Unidecode
