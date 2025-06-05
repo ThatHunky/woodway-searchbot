@@ -8,7 +8,11 @@ class TestSearch(unittest.TestCase):
         self.mock_index = {
             "oak": ["path/to/oak1.jpg", "path/to/oak2.jpg", "path/to/oak3.jpg"],
             "maple": ["path/to/maple1.jpg", "path/to/maple2.jpg"],
-            "cherry": ["path/to/cherry1.jpg", "path/to/cherry2.jpg", "path/to/cherry3.jpg"],
+            "cherry": [
+                "path/to/cherry1.jpg",
+                "path/to/cherry2.jpg",
+                "path/to/cherry3.jpg",
+            ],
         }
 
     def test_search_keyword_exact_match(self):
@@ -39,4 +43,4 @@ class TestSearch(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()

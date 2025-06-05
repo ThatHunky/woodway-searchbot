@@ -1,1 +1,1 @@
-"""Test package for the woodway-searchbot.""" 
+"""Test package for the woodway-searchbot."""

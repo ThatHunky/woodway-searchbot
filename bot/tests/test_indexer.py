@@ -32,6 +32,14 @@ class TestIndexer(AsyncioTestCase):
         self.assertEqual(indexer.index_file, Path("index.json"))
         self.assertEqual(indexer.index, {})
 
+    def test_windows_drive_normalization(self):
+        """Windows drive letters should expand to root path."""
+        idx = Indexer("P:", "index.json")
+        if os.name == "nt":
+            self.assertEqual(idx.share_path, Path("P:\\"))
+        else:
+            self.assertEqual(idx.share_path, Path("P:"))
+
     @patch("os.walk")
     @patch("asyncio.to_thread")
     async def test_build_index(self, mock_to_thread, mock_walk):
