@@ -38,6 +38,16 @@ class Indexer:
 
         async with self._lock:
             logger.info("Building index from {}", self.share_path)
+            try:
+                if not self.share_path.is_dir():
+                    logger.error("Share path {} is not accessible", self.share_path)
+                    return False
+            except OSError as exc:  # pragma: no cover - OS-level failure
+                logger.error(
+                    "Share path {} is not accessible: {}", self.share_path, exc
+                )
+                return False
+
             index: dict[str, list[str]] = defaultdict(list)
             image_count = 0
 
