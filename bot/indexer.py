@@ -8,6 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
+from datetime import datetime
+
 from loguru import logger
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif"}
@@ -24,34 +26,58 @@ class Indexer:
         self.share_path = Path(share_path)
         self.index_file = Path(index_file)
         self.index: dict[str, list[str]] = {}
+        self._lock = asyncio.Lock()
+        self.last_index_time: datetime | None = None
 
-    async def build_index(self) -> None:
-        logger.info("Building index from {}", self.share_path)
-        index: dict[str, list[str]] = defaultdict(list)
+    async def build_index(self) -> bool:
+        if self._lock.locked():
+            logger.warning("Index build requested but already running")
+            return False
 
-        def walk() -> dict[str, list[str]]:
-            for root, _dirs, files in os.walk(self.share_path):
-                for fname in files:
-                    if Path(fname).suffix.lower() in IMAGE_EXTS:
-                        path = Path(root) / fname
-                        tokens = set(_tokenize(str(path.relative_to(self.share_path))))
-                        for token in tokens:
-                            index[token].append(str(path))
-            return index
+        async with self._lock:
+            logger.info("Building index from {}", self.share_path)
+            index: dict[str, list[str]] = defaultdict(list)
+            image_count = 0
 
-        await asyncio.to_thread(walk)
-        self.index = dict(index)
-        await asyncio.to_thread(self._save_index)
-        logger.info("Indexed {} keywords", len(self.index))
+            def walk() -> dict[str, list[str]]:
+                nonlocal image_count
+                for root, _dirs, files in os.walk(self.share_path):
+                    logger.debug("Scanning {}", root)
+                    for fname in files:
+                        if Path(fname).suffix.lower() in IMAGE_EXTS:
+                            image_count += 1
+                            path = Path(root) / fname
+                            tokens = set(
+                                _tokenize(str(path.relative_to(self.share_path)))
+                            )
+                            for token in tokens:
+                                index[token].append(str(path))
+                return index
+
+            await asyncio.to_thread(walk)
+            self.index = dict(index)
+            await asyncio.to_thread(self._save_index)
+            self.last_index_time = datetime.utcnow()
+            logger.info(
+                "Indexed {} keywords from {} images",
+                len(self.index),
+                image_count,
+            )
+            return True
 
     async def load_index(self) -> None:
         if self.index_file.exists():
+            logger.info("Loading index from {}", self.index_file)
             try:
                 content = await asyncio.to_thread(self.index_file.read_text)
                 self.index = json.loads(content)
+                logger.info(
+                    "Loaded {} keywords from {}", len(self.index), self.index_file
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Failed to load index: {}", exc)
                 self.index = {}
 
     def _save_index(self) -> None:
+        logger.debug("Saving index to {}", self.index_file)
         self.index_file.write_text(json.dumps(self.index, ensure_ascii=False, indent=2))

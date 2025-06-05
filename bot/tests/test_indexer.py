@@ -32,8 +32,8 @@ class TestIndexer(AsyncioTestCase):
         self.assertEqual(indexer.index_file, Path("index.json"))
         self.assertEqual(indexer.index, {})
 
-    @patch('os.walk')
-    @patch('asyncio.to_thread')
+    @patch("os.walk")
+    @patch("asyncio.to_thread")
     async def test_build_index(self, mock_to_thread, mock_walk):
         """Test the build_index method."""
         # Setup mocks
@@ -41,18 +41,19 @@ class TestIndexer(AsyncioTestCase):
             ("/test/path", [], ["oak.jpg", "maple.png", "not_image.txt"])
         ]
         mock_to_thread.side_effect = lambda f, *args, **kwargs: f(*args, **kwargs)
-        
+
         # Create temp directory for index file
         with tempfile.TemporaryDirectory() as temp_dir:
             index_file = Path(temp_dir) / "index.json"
-            
+
             # Create indexer
             indexer = Indexer("/test/path", index_file)
             indexer._save_index = MagicMock()  # Mock _save_index
-            
+
             # Call build_index
-            await indexer.build_index()
-            
+            result = await indexer.build_index()
+            self.assertTrue(result)
+
             # Check index was built correctly
             self.assertIn("oak", indexer.index)
             self.assertIn("jpg", indexer.index)
@@ -60,7 +61,7 @@ class TestIndexer(AsyncioTestCase):
             self.assertIn("png", indexer.index)
             self.assertNotIn("not", indexer.index)
             self.assertNotIn("txt", indexer.index)
-            
+
             # Verify _save_index was called
             indexer._save_index.assert_called_once()
 
@@ -68,17 +69,20 @@ class TestIndexer(AsyncioTestCase):
         """Test loading index from file."""
         # Create temp file with test index
         with tempfile.NamedTemporaryFile(mode="w+", delete=False) as temp_file:
-            test_index = {"oak": ["/test/path/oak.jpg"], "maple": ["/test/path/maple.png"]}
+            test_index = {
+                "oak": ["/test/path/oak.jpg"],
+                "maple": ["/test/path/maple.png"],
+            }
             json.dump(test_index, temp_file)
             temp_file_path = temp_file.name
-        
+
         try:
             # Create indexer with temp file
             indexer = Indexer("/test/path", temp_file_path)
-            
+
             # Load index
             await indexer.load_index()
-            
+
             # Check index was loaded correctly
             self.assertEqual(indexer.index, test_index)
         finally:
@@ -90,24 +94,33 @@ class TestIndexer(AsyncioTestCase):
         # Create temp file for index
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file_path = temp_file.name
-        
+
         try:
             # Create indexer with test index
             indexer = Indexer("/test/path", temp_file_path)
-            indexer.index = {"oak": ["/test/path/oak.jpg"], "maple": ["/test/path/maple.png"]}
-            
+            indexer.index = {
+                "oak": ["/test/path/oak.jpg"],
+                "maple": ["/test/path/maple.png"],
+            }
+
             # Save index
             indexer._save_index()
-            
+
             # Load saved index and check it matches
             with open(temp_file_path, "r") as f:
                 saved_index = json.load(f)
-            
+
             self.assertEqual(saved_index, indexer.index)
         finally:
             # Clean up temp file
             os.unlink(temp_file_path)
 
+    async def test_build_index_locked(self):
+        indexer = Indexer("/test/path", "index.json")
+        indexer._lock.locked = MagicMock(return_value=True)
+        result = await indexer.build_index()
+        self.assertFalse(result)
+
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()
