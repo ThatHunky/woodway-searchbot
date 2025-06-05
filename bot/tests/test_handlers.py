@@ -8,6 +8,7 @@ from bot.handlers import (
     handle_text,
     force_index_cmd,
     index_status_cmd,
+    RawConfirm,
 )
 from bot.tests.run_tests import AsyncioTestCase
 
@@ -19,7 +20,14 @@ class TestHandlers(AsyncioTestCase):
         self.message.text = "oak wood"
         self.message.answer = AsyncMock()
         self.message.answer_photo = AsyncMock()
+        self.message.answer_document = AsyncMock()
         self.message.from_user = MagicMock(id=123)
+
+        self.state = AsyncMock()
+        self.state.update_data = AsyncMock()
+        self.state.set_state = AsyncMock()
+        self.state.get_data = AsyncMock(return_value={})
+        self.state.clear = AsyncMock()
 
         self.config = Config(
             bot_token="test_token", gemini_api_key="test_key", share_path="/test/path"
@@ -40,9 +48,10 @@ class TestHandlers(AsyncioTestCase):
         await start_cmd(self.message)
         self.message.answer.assert_called_once()
 
+    @patch("bot.handlers.os.path.getsize", return_value=100)
     @patch("bot.handlers.FSInputFile")
     @patch("bot.handlers.search_keyword")
-    async def test_handle_text_with_matches(self, mock_search, mock_fs_input):
+    async def test_handle_text_with_matches(self, mock_search, mock_fs_input, _size):
         """Test text handler with matches."""
         # Setup mocks
         self.gemini.extract.return_value = ["oak"]
@@ -50,7 +59,9 @@ class TestHandlers(AsyncioTestCase):
         mock_fs_input.side_effect = lambda path: path  # Just return the path
 
         # Call handler
-        await handle_text(self.message, self.config, self.indexer, self.gemini)
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
 
         # Verify behavior
         self.gemini.extract.assert_called_once_with(
@@ -68,7 +79,9 @@ class TestHandlers(AsyncioTestCase):
         self.gemini.extract.return_value = []
 
         # Call handler
-        await handle_text(self.message, self.config, self.indexer, self.gemini)
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
 
         # Verify behavior
         self.message.answer.assert_called_once()
@@ -82,7 +95,9 @@ class TestHandlers(AsyncioTestCase):
         mock_search.return_value = []
 
         # Call handler
-        await handle_text(self.message, self.config, self.indexer, self.gemini)
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
 
         # Verify behavior
         self.message.answer.assert_not_called()
@@ -95,9 +110,44 @@ class TestHandlers(AsyncioTestCase):
         self.indexer.index["oak"] = [f"/t/{i}.jpg" for i in range(100)]
         mock_search.return_value = self.indexer.index["oak"][:5]
 
-        await handle_text(self.message, self.config, self.indexer, self.gemini)
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
 
         self.message.answer.assert_called_once()
+        self.message.answer_photo.assert_not_called()
+
+    @patch("bot.handlers.os.path.getsize", return_value=100)
+    @patch("bot.handlers.FSInputFile")
+    @patch("bot.handlers.search_keyword")
+    async def test_handle_text_raw_prompt(self, mock_search, mock_fs_input, _size):
+        """RAW files trigger a confirmation prompt."""
+        self.gemini.extract.return_value = ["oak"]
+        mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
+        mock_fs_input.side_effect = lambda path: path
+
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
+
+        self.message.answer_photo.assert_called_once()
+        self.state.set_state.assert_called_once_with(RawConfirm.waiting)
+
+    @patch("bot.handlers.os.path.getsize", return_value=100)
+    @patch("bot.handlers.FSInputFile")
+    @patch("bot.handlers.search_keyword")
+    async def test_handle_text_originals(self, mock_search, mock_fs_input, _size):
+        """When 'originals' requested, send all files as documents."""
+        self.message.text = "oak originals"
+        self.gemini.extract.return_value = ["oak"]
+        mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
+        mock_fs_input.side_effect = lambda path: path
+
+        await handle_text(
+            self.message, self.config, self.indexer, self.gemini, self.state
+        )
+
+        self.assertEqual(self.message.answer_document.call_count, 2)
         self.message.answer_photo.assert_not_called()
 
     async def test_force_index_cmd_success(self):
