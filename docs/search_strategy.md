@@ -1,20 +1,16 @@
 # Search Logic Overview
 
-The project originally referenced a `share_structure.txt` example which
-outlined common folder names like `Stock`, `WoodWay/WW`, and
-`Шпон в Україні/Baykal`. The file is not present in the repository, but the
-following strategy was derived from the description in the prompt.
+The sample `share_structure.txt` shows a network share with several language and brand conventions:
 
-- **Board images by default** — search results exclude any path containing the
-  word `Stock` unless the query explicitly mentions stock words (e.g. `stock`,
-  `сток`, `склад`).
-- **Brand handling** — queries containing brand identifiers such as `WoodWay`,
-  `WW`, `Байкал/Baykal` or `Шпон` return photos from those folders first and also
-  allow logo images.
-- **Transliteration support** — the index stores both the original token and its
-  ASCII transliteration using `Unidecode`. This allows English queries to match
-  Ukrainian or russian names.
-- **Logo filtering** — non-brand queries ignore files whose path includes
-  `logo`.
+* Folders like `Stock` store background or web images not related to specific boards.
+* Product photos live under directories such as `Дошка`, `Ламель` and contain subfolders `No Logo`, `WoodWay`, `Шпон в Україні`.
+* Brand resources appear under `WoodWay`/`WW`, `Шпон в Україні`, `Байкал`/`Baykal`.
 
-This document summarises how the search utilities filter and prioritise results.
+Based on this structure the search utilities apply the following rules:
+
+- **Board images by default** – any path containing stock keywords is skipped unless the user explicitly requests stock photos (`stock`, `сток`, `склад`).
+- **Brand handling** – queries containing brand identifiers (`woodway`, `ww`, `baykal`, `шпон`) surface images from those folders first and allow logo images.
+- **Synonym and transliteration support** – both the original tokens and their ASCII transliterations are indexed. A small synonym map helps match English species names (``oak`` → ``дуб`` etc.).
+- **Logo filtering** – non‑brand queries ignore files whose path includes `logo`.
+
+These heuristics keep results focused on relevant board photos while still allowing branded or stock content when explicitly requested.

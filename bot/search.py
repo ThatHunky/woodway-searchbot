@@ -1,20 +1,30 @@
-from __future__ import annotations
-
 """Utilities for fuzzy searching the indexed photo share.
 
-The share contains a mix of Ukrainian, russian and English folder names.  Users
-often query in English or with transliterated text, so we fuzzy match keywords
-and apply several filters:
+``share_structure.txt`` reveals that photos are organised by wood species under
+folders like ``Дошка`` or ``Ламель`` with optional brand subfolders
+(``WoodWay``/``WW``/``Шпон в Україні``).  A separate ``Stock`` tree contains
+generic background images.  Names appear in Ukrainian, russian or occasionally
+English.
 
-* Results from directories named ``Stock`` are excluded unless the query
-  explicitly requests stock images.
-* Images containing ``logo`` or similar in their path are ignored unless the
-  query is recognised as a *brand* request (e.g. ``WoodWay``/``WW``/``Baykal``).
-* Keywords are matched case-insensitively using ``rapidfuzz.token_set_ratio``.
+Queries can be in English or transliterated Ukrainian, so the index stores both
+the original token and its ASCII transliteration.  A small synonym map links
+common English species names to their Ukrainian equivalents (e.g. ``oak`` →
+``дуб``).
 
-This module exposes ``search_keyword`` and ``search_keywords`` helpers that
-implement this logic.
+Filtering rules:
+
+* **Board images by default** – paths containing stock keywords are skipped
+  unless the query explicitly requests stock photos.
+* **Logo filtering** – images containing ``logo`` are ignored unless the query
+  looks brand related (``WoodWay``, ``WW``, ``Baykal`` or ``Шпон``).
+* **Brand prioritisation** – when a brand is requested, photos from brand
+  folders are returned first.
+
+These utilities expose ``search_keyword`` and ``search_keywords`` which apply
+the above heuristics using ``rapidfuzz.token_set_ratio`` for matching.
 """
+
+from __future__ import annotations
 
 import random
 from typing import Iterable
@@ -30,6 +40,33 @@ _BRAND_WORDS = {
     "\u0448\u043f\u043e\u043d",
 }
 
+# Basic mapping of English wood species to their Ukrainian equivalents.
+# Tokens are stored in lowercase for matching.
+_SYNONYMS: dict[str, set[str]] = {
+    "oak": {"oak", "дуб"},
+    "acacia": {"acacia", "акация", "акація"},
+    "beech": {"beech", "бук"},
+    "hornbeam": {"hornbeam", "граб"},
+    "pine": {"pine", "сосна"},
+    "cherry": {"cherry", "черешня"},
+    "maple": {"maple", "клен"},
+    "birch": {"birch", "береза"},
+    "alder": {"alder", "вільха"},
+    "pear": {"pear", "груша"},
+    "apple": {"apple", "ябл"},
+    "mulberry": {"mulberry", "шовковиця"},
+    "seiba": {"seiba", "сейба", "samba"},
+}
+
+
+def _expand_keyword(keyword: str) -> set[str]:
+    """Return keyword plus synonyms for fuzzy matching."""
+    lower = keyword.lower()
+    for base, synonyms in _SYNONYMS.items():
+        if lower == base or lower in synonyms:
+            return {base, *synonyms}
+    return {lower}
+
 
 def _contains_brand(path: str) -> bool:
     lowered = path.lower()
@@ -41,7 +78,8 @@ def _contains_logo(path: str) -> bool:
 
 
 def _contains_stock(path: str) -> bool:
-    return "stock" in path.lower()
+    lowered = path.lower()
+    return any(word in lowered for word in _STOCK_WORDS)
 
 
 def _is_stock_query(text: str) -> bool:
@@ -70,25 +108,31 @@ def search_keyword(
     allow_stock = _is_stock_query(query_text)
     brand_query = _is_brand_query(query_text)
 
-    matches: list[str] = []
+    tokens = _expand_keyword(keyword)
+    matches: set[str] = set()
     for key, paths in index.items():
-        if fuzz.token_set_ratio(keyword, key) >= 80:
-            matches.extend(paths)
+        for token in tokens:
+            if fuzz.token_set_ratio(token, key) >= 80:
+                matches.update(paths)
+                break
 
     # Filter stock images unless explicitly requested
+    match_list = list(matches)
     if not allow_stock:
-        matches = [p for p in matches if not _contains_stock(p)]
+        match_list = [p for p in match_list if not _contains_stock(p)]
 
     # Filter logo images unless a brand is requested
     if brand_query:
-        brand_matches = [p for p in matches if _contains_brand(p) or _contains_logo(p)]
-        non_brand = [p for p in matches if p not in brand_matches]
-        matches = brand_matches + non_brand
+        brand_matches = [
+            p for p in match_list if _contains_brand(p) or _contains_logo(p)
+        ]
+        non_brand = [p for p in match_list if p not in brand_matches]
+        match_list = brand_matches + non_brand
     else:
-        matches = [p for p in matches if not _contains_logo(p)]
+        match_list = [p for p in match_list if not _contains_logo(p)]
 
-    random.shuffle(matches)
-    return matches[:limit]
+    random.shuffle(match_list)
+    return match_list[:limit]
 
 
 def search_keywords(
@@ -104,8 +148,13 @@ def search_keywords(
     filtering behaviour across all keywords.
     """
 
-    results: list[str] = []
+    result_list: list[str] = []
+    seen: set[str] = set()
     for kw in keywords:
-        results.extend(search_keyword(kw, index, limit, query_text=query_text))
-    return results
-
+        for path in search_keyword(kw, index, limit, query_text=query_text):
+            if path not in seen:
+                result_list.append(path)
+                seen.add(path)
+            if len(result_list) >= limit:
+                return result_list
+    return result_list

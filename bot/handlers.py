@@ -9,7 +9,7 @@ from time import monotonic
 from .config import Config
 from .gemini import GeminiClient
 from .indexer import Indexer
-from .search import search_keyword, search_keywords
+from .search import search_keyword
 
 router = Router()
 
