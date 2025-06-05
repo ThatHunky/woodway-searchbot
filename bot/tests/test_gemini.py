@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from bot.gemini import GeminiClient, PROMPT
 from bot.tests.run_tests import AsyncioTestCase
