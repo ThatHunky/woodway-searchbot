@@ -40,38 +40,45 @@ class TestIndexer(AsyncioTestCase):
         else:
             self.assertEqual(idx.share_path, Path("P:"))
 
+    async def test_build_index_missing_share(self):
+        """Return False when share path is not available."""
+        indexer = Indexer("/unlikely/path/doesnotexist", "index.json")
+        result = await indexer.build_index()
+        self.assertFalse(result)
+
     @patch("os.walk")
     @patch("asyncio.to_thread")
     async def test_build_index(self, mock_to_thread, mock_walk):
         """Test the build_index method."""
         # Setup mocks
-        mock_walk.return_value = [
-            ("/test/path", [], ["oak.jpg", "maple.png", "not_image.txt"])
-        ]
-        mock_to_thread.side_effect = lambda f, *args, **kwargs: f(*args, **kwargs)
+        with tempfile.TemporaryDirectory() as share_dir:
+            mock_walk.return_value = [
+                (share_dir, [], ["oak.jpg", "maple.png", "not_image.txt"])
+            ]
+            mock_to_thread.side_effect = lambda f, *args, **kwargs: f(*args, **kwargs)
 
-        # Create temp directory for index file
-        with tempfile.TemporaryDirectory() as temp_dir:
-            index_file = Path(temp_dir) / "index.json"
+            # Create temp directory for index file
+            with tempfile.TemporaryDirectory() as temp_dir:
+                index_file = Path(temp_dir) / "index.json"
 
-            # Create indexer
-            indexer = Indexer("/test/path", index_file)
-            indexer._save_index = MagicMock()  # Mock _save_index
+                # Create indexer
+                indexer = Indexer(share_dir, index_file)
+                indexer._save_index = MagicMock()  # Mock _save_index
 
-            # Call build_index
-            result = await indexer.build_index()
-            self.assertTrue(result)
+                # Call build_index
+                result = await indexer.build_index()
+                self.assertTrue(result)
 
-            # Check index was built correctly
-            self.assertIn("oak", indexer.index)
-            self.assertIn("jpg", indexer.index)
-            self.assertIn("maple", indexer.index)
-            self.assertIn("png", indexer.index)
-            self.assertNotIn("not", indexer.index)
-            self.assertNotIn("txt", indexer.index)
+                # Check index was built correctly
+                self.assertIn("oak", indexer.index)
+                self.assertIn("jpg", indexer.index)
+                self.assertIn("maple", indexer.index)
+                self.assertIn("png", indexer.index)
+                self.assertNotIn("not", indexer.index)
+                self.assertNotIn("txt", indexer.index)
 
-            # Verify _save_index was called
-            indexer._save_index.assert_called_once()
+                # Verify _save_index was called
+                indexer._save_index.assert_called_once()
 
     async def test_load_index(self):
         """Test loading index from file."""

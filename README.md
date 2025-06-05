@@ -10,7 +10,7 @@ Telegram bot that serves wood species images using natural language queries. It 
 
 ## Setup
 1. Copy `.env.example` to `.env` and fill in credentials.
-2. Ensure the Windows share is accessible and mapped via CIFS.
+2. Ensure the Windows share is accessible and mounted via SMB.
    On Windows, you can set `SHARE_PATH` to a drive letter like `P:`
    and the bot will automatically normalize it to `P:\`.
 3. Build and start with Docker Compose:
