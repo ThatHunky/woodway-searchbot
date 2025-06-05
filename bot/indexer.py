@@ -23,6 +23,8 @@ def _tokenize(text: str) -> Iterable[str]:
 
 class Indexer:
     def __init__(self, share_path: str, index_file: Path | str) -> None:
+        if os.name == "nt" and re.fullmatch(r"^[a-zA-Z]:$", share_path):
+            share_path += "\\"
         self.share_path = Path(share_path)
         self.index_file = Path(index_file)
         self.index: dict[str, list[str]] = {}

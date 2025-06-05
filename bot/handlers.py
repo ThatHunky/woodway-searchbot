@@ -56,9 +56,7 @@ async def index_status_cmd(message: Message, indexer: Indexer) -> None:
         if indexer.last_index_time
         else "never"
     )
-    await _safe_answer(
-        message, f"Keywords: {len(indexer.index)}\nLast updated: {last}"
-    )
+    await _safe_answer(message, f"Keywords: {len(indexer.index)}\nLast updated: {last}")
 
 
 @router.message(F.text)
