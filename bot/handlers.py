@@ -9,7 +9,7 @@ from time import monotonic
 from .config import Config
 from .gemini import GeminiClient
 from .indexer import Indexer
-from .search import search_keyword
+from .search import search_keyword, search_keywords
 
 router = Router()
 
@@ -80,7 +80,7 @@ async def handle_text(
                 f"Too many results for '{kw}'. Please provide more details or another keyword.",
             )
             continue
-        results = search_keyword(kw, indexer.index)
+        results = search_keyword(kw, indexer.index, query_text=message.text)
         if not results:
             continue
         await _safe_answer(message, f"*{kw}*", parse_mode=ParseMode.MARKDOWN)

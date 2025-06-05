@@ -11,14 +11,25 @@ from typing import Iterable
 from datetime import datetime
 
 from loguru import logger
+from unidecode import unidecode
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif"}
 
 
+_TOKEN_RE = re.compile(r"[^a-zA-Z0-9\u0400-\u04FF]+")
+
+
 def _tokenize(text: str) -> Iterable[str]:
-    for token in re.split(r"[^a-zA-Z0-9]+", text):
-        if token:
-            yield token.lower()
+    """Yield lowercase tokens and their ASCII transliterations."""
+
+    for token in _TOKEN_RE.split(text):
+        if not token:
+            continue
+        lower = token.lower()
+        yield lower
+        ascii_equiv = unidecode(lower)
+        if ascii_equiv and ascii_equiv != lower:
+            yield ascii_equiv
 
 
 class Indexer:

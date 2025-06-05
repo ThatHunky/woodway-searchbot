@@ -56,7 +56,9 @@ class TestHandlers(AsyncioTestCase):
         self.gemini.extract.assert_called_once_with(
             "oak wood", self.indexer.index.keys()
         )
-        mock_search.assert_called_once_with("oak", self.indexer.index)
+        mock_search.assert_called_once_with(
+            "oak", self.indexer.index, query_text="oak wood"
+        )
         self.message.answer.assert_called_once()
         self.assertEqual(self.message.answer_photo.call_count, 2)
 
