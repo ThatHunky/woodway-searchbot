@@ -13,6 +13,18 @@ Telegram bot that serves wood species images using natural language queries. It 
 2. Ensure the Windows share is accessible and mounted via SMB.
    On Windows, you can set `SHARE_PATH` to a drive letter like `P:`
    and the bot will automatically normalize it to `P:\`.
+   The path must also be available inside the container. Map the share as a
+   volume in `docker-compose.yml` and point `SHARE_PATH` to the container
+   mount location, e.g.:
+
+   ```yaml
+   services:
+     bot:
+       volumes:
+         - P:\\:/data/share:ro
+   ```
+
+   Then set `SHARE_PATH=/data/share` in `.env`.
 3. Build and start with Docker Compose:
 
 ```bash

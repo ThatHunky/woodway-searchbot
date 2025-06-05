@@ -22,7 +22,6 @@ class AsyncioTestRunner(unittest.TextTestRunner):
 class AsyncioTestCase(unittest.IsolatedAsyncioTestCase):
     """Base class for async test cases."""
 
-
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
         # Get the test method
@@ -43,7 +42,6 @@ class AsyncioTestCase(unittest.IsolatedAsyncioTestCase):
             return loop.run_until_complete(coroutine(*args, **kwargs))
 
         return wrapper
-
 
 
 if __name__ == "__main__":
