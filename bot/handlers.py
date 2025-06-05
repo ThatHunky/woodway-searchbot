@@ -17,10 +17,20 @@ _force_index_cooldowns: dict[int, float] = {}
 _COOLDOWN_SECONDS = 60
 
 
+def _sanitize(text: str) -> str:
+    """Remove characters that may cause Telegram encoding errors."""
+    return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
+
+
+async def _safe_answer(message: Message, text: str, **kwargs) -> None:
+    await message.answer(_sanitize(text), **kwargs)
+
+
 @router.message(CommandStart())
 async def start_cmd(message: Message) -> None:
-    await message.answer(
-        "Send me a wood species name or synonym, and I'll return matching photos."
+    await _safe_answer(
+        message,
+        "Send me a wood species name or synonym, and I'll return matching photos.",
     )
 
 
@@ -30,13 +40,13 @@ async def force_index_cmd(message: Message, indexer: Indexer) -> None:
     now = monotonic()
     last = _force_index_cooldowns.get(user_id, -_COOLDOWN_SECONDS)
     if now - last < _COOLDOWN_SECONDS and last != -_COOLDOWN_SECONDS:
-        await message.answer("Please wait before requesting indexing again.")
+        await _safe_answer(message, "Please wait before requesting indexing again.")
         return
     _force_index_cooldowns[user_id] = now
     if await indexer.build_index():
-        await message.answer("Indexing started.")
+        await _safe_answer(message, "Indexing started.")
     else:
-        await message.answer("Indexing is already running.")
+        await _safe_answer(message, "Indexing is already running.")
 
 
 @router.message(Command("indexstatus"))
@@ -46,7 +56,9 @@ async def index_status_cmd(message: Message, indexer: Indexer) -> None:
         if indexer.last_index_time
         else "never"
     )
-    await message.answer(f"Keywords: {len(indexer.index)}\nLast updated: {last}")
+    await _safe_answer(
+        message, f"Keywords: {len(indexer.index)}\nLast updated: {last}"
+    )
 
 
 @router.message(F.text)
@@ -55,8 +67,9 @@ async def handle_text(
 ) -> None:
     keywords = await gemini.extract(message.text, indexer.index.keys())
     if not keywords:
-        await message.answer(
-            "\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 \ud83e\udd37"
+        await _safe_answer(
+            message,
+            "\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 \ud83e\udd37",
         )
         return
 
@@ -64,6 +77,6 @@ async def handle_text(
         results = search_keyword(kw, indexer.index)
         if not results:
             continue
-        await message.answer(f"*{kw}*", parse_mode=ParseMode.MARKDOWN)
+        await _safe_answer(message, f"*{kw}*", parse_mode=ParseMode.MARKDOWN)
         for path in results:
             await message.answer_photo(FSInputFile(path))

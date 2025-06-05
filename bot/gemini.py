@@ -10,8 +10,13 @@ from loguru import logger
 
 PROMPT = (
     "Extract target wood species or synonyms in lowercase English transliteration "
-    "(e.g. \u0430\u043a\u0430\u0446\u0456\u044f \u2192 acacia). Return a JSON list of strings."
+    "(e.g. \u0430\u043a\u0430\u0446\u0456\u044f \u2192 acacia). "
+    "Respond only with a raw JSON array of strings. If nothing is found return an empty array."
 )
+
+# Gemini occasionally wraps the JSON array in markdown code fences. This regex
+# helps us locate the array in a best-effort manner.
+_JSON_RE = re.compile(r"\[.*?\]", re.S)
 
 
 class GeminiClient:
@@ -24,9 +29,12 @@ class GeminiClient:
             response = await asyncio.to_thread(
                 self.model.generate_content, f"{PROMPT}\n\n{text}"
             )
-            data = json.loads(response.text)
-            if isinstance(data, list):
-                return [str(x).lower() for x in data]
+            content = response.text.strip()
+            match = _JSON_RE.search(content)
+            if match:
+                data = json.loads(match.group())
+                if isinstance(data, list):
+                    return [str(x).lower() for x in data]
         except Exception:  # noqa: BLE001
             logger.exception("Gemini extraction failed")
         return self._fallback_regex(text, known)
