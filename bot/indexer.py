@@ -40,7 +40,17 @@ class Indexer:
             logger.info("Building index from {}", self.share_path)
             try:
                 if not self.share_path.is_dir():
-                    logger.error("Share path {} is not accessible", self.share_path)
+                    if (
+                        re.fullmatch(r"^[a-zA-Z]:\\?", str(self.share_path))
+                        and os.name != "nt"
+                    ):
+                        logger.error(
+                            "Share path {} looks like a Windows drive letter. "
+                            "Set SHARE_PATH to the container mount (e.g. /data/share).",
+                            self.share_path,
+                        )
+                    else:
+                        logger.error("Share path {} is not accessible", self.share_path)
                     return False
             except OSError as exc:  # pragma: no cover - OS-level failure
                 logger.error(
