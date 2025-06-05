@@ -86,6 +86,18 @@ class TestHandlers(AsyncioTestCase):
         self.message.answer.assert_not_called()
         self.message.answer_photo.assert_not_called()
 
+    @patch("bot.handlers.search_keyword")
+    async def test_handle_text_broad_query(self, mock_search):
+        """When too many images match a keyword, ask for clarification."""
+        self.gemini.extract.return_value = ["oak"]
+        self.indexer.index["oak"] = [f"/t/{i}.jpg" for i in range(100)]
+        mock_search.return_value = self.indexer.index["oak"][:5]
+
+        await handle_text(self.message, self.config, self.indexer, self.gemini)
+
+        self.message.answer.assert_called_once()
+        self.message.answer_photo.assert_not_called()
+
     async def test_force_index_cmd_success(self):
         self.indexer.build_index = AsyncMock(return_value=True)
         await force_index_cmd(self.message, self.indexer)

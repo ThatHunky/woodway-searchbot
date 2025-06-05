@@ -22,7 +22,28 @@ class AsyncioTestRunner(unittest.TextTestRunner):
 class AsyncioTestCase(unittest.IsolatedAsyncioTestCase):
     """Base class for async test cases."""
 
-    pass
+
+    def __init__(self, methodName="runTest"):
+        super().__init__(methodName)
+        # Get the test method
+        method = getattr(self, methodName)
+        # If it's a coroutine, wrap it
+        if asyncio.iscoroutinefunction(method):
+            setattr(self, methodName, self._run_coroutine(method))
+
+    def runTest(self) -> None:  # pragma: no cover - used for pytest collection
+        """Default no-op test method for unittest discovery."""
+        return None
+
+    def _run_coroutine(self, coroutine):
+        """Wrap coroutine to run in the event loop."""
+
+        def wrapper(*args, **kwargs):
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(coroutine(*args, **kwargs))
+
+        return wrapper
+
 
 
 if __name__ == "__main__":
