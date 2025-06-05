@@ -6,5 +6,5 @@ services:
     volumes:
       - ./index.json:/app/index.json
       # Map the Windows network share into the container
-      - P:\\:/data/share:ro
+      - /mnt/photos:/data/share:ro
     restart: unless-stopped
