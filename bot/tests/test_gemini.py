@@ -44,6 +44,16 @@ class TestGeminiClient(AsyncioTestCase):
             f"{PROMPT}\n\nI need oak and maple wood"
         )
         self.assertEqual(result, ["oak", "maple"])
+
+    @patch('asyncio.to_thread')
+    async def test_extract_code_fence(self, mock_to_thread):
+        """Gemini may wrap the JSON in markdown fences."""
+        mock_response = MagicMock()
+        mock_response.text = '```json\n["oak"]\n```'
+        mock_to_thread.return_value = mock_response
+
+        result = await self.client.extract("oak", [])
+        self.assertEqual(result, ["oak"])
     
     @patch('asyncio.to_thread')
     async def test_extract_invalid_json(self, mock_to_thread):
