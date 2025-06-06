@@ -30,7 +30,9 @@ import random
 from typing import Iterable
 import re
 
+from loguru import logger
 from rapidfuzz import fuzz
+from unidecode import unidecode
 
 from .synonyms import SynonymStore
 
@@ -154,6 +156,23 @@ def _is_brand_query(text: str) -> bool:
 
 _UNIT_RE = re.compile(r"\b\d+\s*(?:мм|mm|cm|см|m|м)\b", re.IGNORECASE)
 
+# Tokenization pattern for Unicode-aware search
+_TOKEN_RE = re.compile(r"[^a-zA-Z0-9\u0400-\u04FF]+")
+
+
+def _query_tokens(text: str) -> list[str]:
+    """Tokenize ``text`` into lowercase and ASCII variants."""
+    tokens: list[str] = []
+    for tok in _TOKEN_RE.split(text):
+        if not tok:
+            continue
+        low = tok.lower()
+        tokens.append(low)
+        ascii_equiv = unidecode(low)
+        if ascii_equiv and ascii_equiv != low:
+            tokens.append(ascii_equiv)
+    return tokens
+
 
 def sanitize_query(text: str) -> str:
     """Remove measurements like ``32 мм`` from ``text`` for cleaner keyword extraction."""
@@ -235,3 +254,18 @@ def search_keywords(
             if len(result_list) >= limit:
                 return result_list
     return result_list
+
+
+def search_text(
+    text: str,
+    index: dict[str, list[str]],
+    limit: int = 5,
+) -> list[str]:
+    """Search ``text`` in ``index`` using tokenised, case-insensitive matching."""
+
+    clean = sanitize_query(text)
+    tokens = _query_tokens(clean)
+    if not tokens:
+        return []
+    logger.debug("Searching %s -> tokens=%s", text, tokens)
+    return search_keywords(tokens, index, limit, query_text=text)
