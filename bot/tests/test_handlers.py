@@ -8,7 +8,6 @@ from bot.handlers import (
     handle_text,
     force_index_cmd,
     index_status_cmd,
-    RawConfirm,
 )
 from bot.tests.run_tests import AsyncioTestCase
 
@@ -42,6 +41,11 @@ class TestHandlers(AsyncioTestCase):
         self.gemini = MagicMock()
         self.gemini.extract = AsyncMock()
         handlers._force_index_cooldowns.clear()
+        self.feedback = MagicMock()
+        self.feedback.record_query = AsyncMock()
+        self.feedback.record_feedback = AsyncMock()
+        self.synonyms = MagicMock()
+        self.synonyms.ensure = AsyncMock()
 
     async def test_start_cmd(self):
         """Test the start command handler."""
@@ -60,18 +64,25 @@ class TestHandlers(AsyncioTestCase):
 
         # Call handler
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
 
         # Verify behavior
         self.gemini.extract.assert_called_once_with(
             "oak wood", self.indexer.index.keys()
         )
+        self.synonyms.ensure.assert_called_once()
         mock_search.assert_called_once_with(
             "oak", self.indexer.index, query_text="oak wood"
         )
-        self.message.answer.assert_called_once()
-        self.assertEqual(self.message.answer_photo.call_count, 2)
+        self.message.answer.assert_not_called()
+        self.assertEqual(self.message.answer_photo.call_count, 1)
 
     async def test_handle_text_no_keywords(self):
         """Test text handler with no keywords found."""
@@ -80,7 +91,13 @@ class TestHandlers(AsyncioTestCase):
 
         # Call handler
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
 
         # Verify behavior
@@ -96,11 +113,17 @@ class TestHandlers(AsyncioTestCase):
 
         # Call handler
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
 
         # Verify behavior
-        self.message.answer.assert_not_called()
+        self.message.answer.assert_called_once()
         self.message.answer_photo.assert_not_called()
 
     @patch("bot.handlers.search_keyword")
@@ -111,10 +134,16 @@ class TestHandlers(AsyncioTestCase):
         mock_search.return_value = self.indexer.index["oak"][:5]
 
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
 
-        self.message.answer.assert_called_once()
+        self.assertEqual(self.message.answer.call_count, 2)
         self.message.answer_photo.assert_not_called()
 
     @patch("bot.handlers.os.path.getsize", return_value=100)
@@ -127,11 +156,16 @@ class TestHandlers(AsyncioTestCase):
         mock_fs_input.side_effect = lambda path: path
 
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
-
         self.message.answer_photo.assert_called_once()
-        self.state.set_state.assert_called_once_with(RawConfirm.waiting)
+        self.state.set_state.assert_not_called()
 
     @patch("bot.handlers.os.path.getsize", return_value=100)
     @patch("bot.handlers.FSInputFile")
@@ -144,10 +178,15 @@ class TestHandlers(AsyncioTestCase):
         mock_fs_input.side_effect = lambda path: path
 
         await handle_text(
-            self.message, self.config, self.indexer, self.gemini, self.state
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
         )
-
-        self.assertEqual(self.message.answer_document.call_count, 2)
+        self.assertEqual(self.message.answer_document.call_count, 1)
         self.message.answer_photo.assert_not_called()
 
     async def test_force_index_cmd_success(self):

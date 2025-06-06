@@ -21,6 +21,12 @@ class TestSearch(unittest.TestCase):
         results = search_keyword("oak", self.mock_index, limit=5)
         self.assertIn("path/to/ua_oak.jpg", results)
 
+    def test_material_synonyms(self):
+        """Material terms should be mapped across languages."""
+        self.mock_index["дошка"] = ["path/to/board_oak.jpg"]
+        results = search_keyword("board", self.mock_index, limit=5)
+        self.assertIn("path/to/board_oak.jpg", results)
+
     def test_stock_filtering(self):
         """Stock images are returned only when requested."""
         index = {

@@ -47,3 +47,27 @@ class GeminiClient:
             if re.search(re.escape(word.lower()), lower):
                 found.append(word.lower())
         return found
+
+    async def synonyms(self, words: Iterable[str]) -> dict[str, list[str]]:
+        """Return synonyms for each word using Gemini."""
+        prompt = (
+            "For each term provide common synonyms or translations in Ukrainian, English and Russian. "
+            "Respond with a JSON object mapping the term to an array of synonyms."
+        )
+        try:
+            response = await asyncio.to_thread(
+                self.model.generate_content, f"{prompt}\n\n{', '.join(words)}"
+            )
+            content = response.text.strip()
+            match = _JSON_RE.search(content)
+            if match:
+                data = json.loads(match.group())
+                if isinstance(data, dict):
+                    return {
+                        k.lower(): [str(x).lower() for x in v]
+                        for k, v in data.items()
+                        if isinstance(v, list)
+                    }
+        except Exception:  # noqa: BLE001
+            logger.exception("Gemini synonym query failed")
+        return {}

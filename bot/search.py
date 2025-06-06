@@ -31,6 +31,8 @@ from typing import Iterable
 
 from rapidfuzz import fuzz
 
+from .synonyms import SynonymStore
+
 _STOCK_WORDS = {"stock", "сток", "склад"}
 _BRAND_WORDS = {
     "woodway",
@@ -56,16 +58,35 @@ _SYNONYMS: dict[str, set[str]] = {
     "apple": {"apple", "ябл"},
     "mulberry": {"mulberry", "шовковиця"},
     "seiba": {"seiba", "сейба", "samba"},
+    "board": {"board", "дошка", "panel", "щит"},
+    "veneer": {"veneer", "шпон"},
+    "lamella": {"lamella", "ламель"},
+    "plywood": {"plywood", "фанера"},
+    "chipboard": {"chipboard", "дсп", "particleboard"},
+    "mdf": {"mdf", "мдф"},
+    "beam": {"beam", "брус"},
 }
+
+_synonym_store: SynonymStore | None = None
+
+
+def set_synonym_store(store: SynonymStore) -> None:
+    """Configure dynamic synonym store."""
+    global _synonym_store
+    _synonym_store = store
 
 
 def _expand_keyword(keyword: str) -> set[str]:
     """Return keyword plus synonyms for fuzzy matching."""
     lower = keyword.lower()
+    tokens: set[str] = {lower}
+    if _synonym_store:
+        tokens.update(_synonym_store.expand(lower))
     for base, synonyms in _SYNONYMS.items():
         if lower == base or lower in synonyms:
-            return {base, *synonyms}
-    return {lower}
+            tokens.update({base, *synonyms})
+            break
+    return tokens
 
 
 def _contains_brand(path: str) -> bool:
