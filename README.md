@@ -61,3 +61,6 @@ docker compose -f docker-compose.test.yml up
 - `bot/tests/test_gemini.py`: Tests for Gemini API client
 
 The tests use mock objects to avoid making actual API calls during testing.
+
+## Continuous Integration
+This repository uses GitHub Actions to lint, format and test the code on every pull request. The `ci.yml` workflow installs dependencies with `uv`, runs `ruff` for linting and formatting checks, executes the unit tests and generates a signed SBOM.
