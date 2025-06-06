@@ -201,3 +201,9 @@ To ensure smooth collaboration for Ukrainian‑speaking contributors:
 ---
 
 © 2025 Vsevolod Dobrovolskyi • License: identical to repository’s primary `LICENSE`.
+
+### Version History
+
+* **1.0 – 2025‑06‑06** – Initial publication.
+* **1.1 – 2025‑06‑07** – Added this version history and clarified that indexing tokens come from full paths (folder and file names).
+* **1.2 – 2025‑06‑07** – Documented combined keyword search and Gemini natural language parsing.

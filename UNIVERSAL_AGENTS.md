@@ -38,3 +38,9 @@ Adapt these as necessary for your stack.
 Projects may refine this guide when adopting new tools or rules. Keep updates brief and retain existing constraints unless explicitly removed.
 
 © 2025 Vsevolod Dobrovolskyi • Licensed under the repository’s primary `LICENSE`.
+
+### Version History
+
+* **1.0 – 2025‑06** – Initial template.
+* **1.1 – 2025‑06‑07** – Added version history section.
+* **1.2 – 2025‑06‑07** – Documented combined keyword search rule and Gemini integration note.

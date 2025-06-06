@@ -33,7 +33,7 @@ from .feedback import FeedbackStore
 import re
 
 from .search import (
-    search_keyword,
+    search_keywords,
     display_keyword,
     sanitize_query,
     suggest_keywords,
@@ -204,22 +204,29 @@ async def _search_and_send(
 
     want_originals = _wants_originals(query_text)
     pending_raw: list[str] = []
-    results: list[str] = []
 
-    for kw in keywords:
-        total = len(indexer.index.get(kw, []))
+    if len(keywords) == 1:
+        total = len(indexer.index.get(keywords[0], []))
         if total > _BROAD_QUERY_THRESHOLD:
             await _safe_answer(
                 message,
-                f"Забагато результатів для '{kw}'. Уточніть запит або вкажіть інше слово.",
+                f"Забагато результатів для '{keywords[0]}'. Уточніть запит або вкажіть інше слово.",
             )
+            return
+
+    limit = max(5, 5 * len(keywords))
+    results = search_keywords(
+        keywords, indexer.index, limit=limit, query_text=query_text
+    )
+
+    filtered: list[str] = []
+    for path in results:
+        ext = Path(path).suffix.lower()
+        if ext in _RAW_EXTS and not want_originals:
+            pending_raw.append(path)
             continue
-        for path in search_keyword(kw, indexer.index, query_text=query_text):
-            ext = Path(path).suffix.lower()
-            if ext in _RAW_EXTS and not want_originals:
-                pending_raw.append(path)
-                continue
-            results.append(path)
+        filtered.append(path)
+    results = filtered
 
     if not results:
         if pending_raw and not want_originals:
