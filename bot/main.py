@@ -8,6 +8,7 @@ from loguru import logger
 
 from .config import Config, load_config
 from .gemini import GeminiClient
+from .gemini_parser import GeminiParser
 from .handlers import router
 from .indexer import Indexer
 from .feedback import FeedbackStore
@@ -26,6 +27,7 @@ async def main() -> None:
     indexer = Indexer(config.share_path, Path("index.json"))
     await indexer.load_index()
     gemini = GeminiClient(config.gemini_api_key)
+    parser = GeminiParser(config.gemini_api_key)
     feedback = FeedbackStore(Path("feedback.db"))
     await feedback.init()
     synonyms = SynonymStore(Path("synonyms.json"))
@@ -39,6 +41,7 @@ async def main() -> None:
     dp["config"] = config
     dp["indexer"] = indexer
     dp["gemini"] = gemini
+    dp["parser"] = parser
     dp["feedback"] = feedback
     dp["synonyms"] = synonyms
 
