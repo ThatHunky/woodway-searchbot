@@ -63,4 +63,4 @@ docker compose -f docker-compose.test.yml up
 The tests use mock objects to avoid making actual API calls during testing.
 
 ## Continuous Integration
-This repository uses GitHub Actions to lint, format and test the code on every pull request. The `ci.yml` workflow installs dependencies with `uv` using the `--system` flag and installs `ruff` separately, runs `ruff` for linting and formatting checks, executes the unit tests and generates a signed SBOM.
+This repository uses GitHub Actions to lint, format and test the code on every pull request. The `ci.yml` workflow installs dependencies with `uv` using the `--system` flag and explicitly installs `ruff`, `pytest` and `cyclonedx-bom`. Cosign is installed via the `sigstore/cosign-installer` action. The workflow then runs `ruff` for linting and formatting checks, executes the unit tests and generates a signed SBOM.
