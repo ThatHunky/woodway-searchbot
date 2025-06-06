@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bot.gemini import GeminiClient, PROMPT
 from bot.tests.run_tests import AsyncioTestCase
@@ -85,6 +85,18 @@ class TestGeminiClient(AsyncioTestCase):
 
         # Verify fallback was used
         self.assertEqual(result, ["maple"])
+
+    async def test_interpret_levels(self):
+        """Interpret should return keywords and confidence."""
+        self.client.extract = AsyncMock(return_value=["oak"])
+        kws, conf = await self.client.interpret("oak", [])
+        self.assertEqual(kws, ["oak"])
+        self.assertEqual(conf, "high")
+
+        self.client.extract = AsyncMock(return_value=[])
+        kws, conf = await self.client.interpret("", [])
+        self.assertEqual(kws, [])
+        self.assertEqual(conf, "low")
 
     def test_fallback_regex(self):
         """Test the regex fallback method."""

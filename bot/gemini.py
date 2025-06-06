@@ -71,3 +71,11 @@ class GeminiClient:
         except Exception:  # noqa: BLE001
             logger.exception("Gemini synonym query failed")
         return {}
+
+    async def interpret(self, text: str, known: Iterable[str]) -> tuple[list[str], str]:
+        """Return extracted keywords and a confidence level."""
+        keywords = await self.extract(text, known)
+        if not keywords:
+            return [], "low"
+        confidence = "high" if len(keywords) == 1 else "medium"
+        return keywords, confidence
