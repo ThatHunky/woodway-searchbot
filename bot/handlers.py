@@ -10,11 +10,16 @@ when RAW files are available.
 from __future__ import annotations
 
 from aiogram import F, Router
-from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import FSInputFile, Message
+from aiogram.types import (
+    FSInputFile,
+    Message,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery,
+)
 from pathlib import Path
 from time import monotonic
 import os
@@ -22,13 +27,40 @@ import os
 from .config import Config
 from .gemini import GeminiClient
 from .indexer import Indexer, IMAGE_EXTS
+from .feedback import FeedbackStore
 from .search import search_keyword
+from .synonyms import SynonymStore
 
 router = Router()
 
 _force_index_cooldowns: dict[int, float] = {}
 _COOLDOWN_SECONDS = 60
 _BROAD_QUERY_THRESHOLD = 50
+
+# Store remaining results per user
+_user_results: dict[int, dict[str, object]] = {}
+
+# Inline keyboard for feedback
+_FEEDBACK_KB = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="👍 \u0421\u043f\u043e\u0434\u043e\u0431\u0430\u043b\u043e\u0441\u044c",
+                callback_data="like",
+            ),
+            InlineKeyboardButton(
+                text="👎 \u041d\u0435 \u0441\u043f\u043e\u0434\u043e\u0431\u0430\u043b\u043e\u0441\u044c",
+                callback_data="dislike",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="\ud83d\udd04 \u0414\u0430\u0439 \u043d\u043e\u0432\u0435",
+                callback_data="next",
+            )
+        ],
+    ]
+)
 
 # Telegram limits
 _MAX_PHOTO_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -74,8 +106,14 @@ def _wants_originals(text: str) -> bool:
     return any(k in lowered for k in keywords)
 
 
-async def _send_file(message: Message, path: str, *, as_original: bool = False) -> None:
-    """Send ``path`` as photo or document based on size and ``as_original``."""
+async def _send_file(
+    message: Message,
+    path: str,
+    *,
+    as_original: bool = False,
+    keyboard: InlineKeyboardMarkup | None = _FEEDBACK_KB,
+) -> None:
+    """Send ``path`` as photo or document with optional inline keyboard."""
 
     file_name = Path(path).name
     try:
@@ -93,9 +131,9 @@ async def _send_file(message: Message, path: str, *, as_original: bool = False) 
 
     try:
         if send_as_document:
-            await message.answer_document(FSInputFile(path))
+            await message.answer_document(FSInputFile(path), reply_markup=keyboard)
         else:
-            await message.answer_photo(FSInputFile(path))
+            await message.answer_photo(FSInputFile(path), reply_markup=keyboard)
     except Exception:  # noqa: BLE001
         try:
             await message.answer_document(FSInputFile(path))
@@ -126,7 +164,9 @@ async def force_index_cmd(message: Message, indexer: Indexer) -> None:
     now = monotonic()
     last = _force_index_cooldowns.get(user_id, -_COOLDOWN_SECONDS)
     if now - last < _COOLDOWN_SECONDS and last != -_COOLDOWN_SECONDS:
-        await _safe_answer(message, "Зачекайте, будь ласка, перед повторним запуском індексації.")
+        await _safe_answer(
+            message, "Зачекайте, будь ласка, перед повторним запуском індексації."
+        )
         return
     _force_index_cooldowns[user_id] = now
     if await indexer.build_index():
@@ -142,7 +182,9 @@ async def index_status_cmd(message: Message, indexer: Indexer) -> None:
         if indexer.last_index_time
         else "never"
     )
-    await _safe_answer(message, f"Ключових слів: {len(indexer.index)}\nОстаннє оновлення: {last}")
+    await _safe_answer(
+        message, f"Ключових слів: {len(indexer.index)}\nОстаннє оновлення: {last}"
+    )
 
 
 @router.message(F.text)
@@ -151,18 +193,19 @@ async def handle_text(
     config: Config,
     indexer: Indexer,
     gemini: GeminiClient,
+    synonyms: SynonymStore,
     state: FSMContext,
+    feedback: FeedbackStore,
 ) -> None:
     keywords = await gemini.extract(message.text, indexer.index.keys())
     if not keywords:
-        await _safe_answer(
-            message,
-            "\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 \ud83e\udd37",
-        )
+        await _safe_answer(message, "Нічого не знайшов 🤷")
         return
+    await synonyms.ensure(keywords, gemini)
 
     want_originals = _wants_originals(message.text)
     pending_raw: list[str] = []
+    results: list[str] = []
 
     for kw in keywords:
         total = len(indexer.index.get(kw, []))
@@ -172,25 +215,33 @@ async def handle_text(
                 f"Забагато результатів для '{kw}'. Уточніть запит або вкажіть інше слово.",
             )
             continue
-        results = search_keyword(kw, indexer.index, query_text=message.text)
-        if not results:
-            continue
-        await _safe_answer(message, f"*{kw}*", parse_mode=ParseMode.MARKDOWN)
-        for path in results:
+        for path in search_keyword(kw, indexer.index, query_text=message.text):
             ext = Path(path).suffix.lower()
             if ext in _RAW_EXTS and not want_originals:
                 pending_raw.append(path)
                 continue
-            await _send_file(message, path, as_original=want_originals)
+            results.append(path)
 
-    if pending_raw:
-        if want_originals:
-            for path in pending_raw:
-                await _send_file(message, path, as_original=True)
-        else:
+    if not results:
+        if pending_raw and not want_originals:
             await _safe_answer(message, MSG_RAW_PROMPT)
             await state.update_data(raw_files=pending_raw)
             await state.set_state(RawConfirm.waiting)
+        else:
+            await _safe_answer(message, "Нічого не знайшов 🤷")
+        return
+
+    first = results.pop(0)
+    await _send_file(message, first, as_original=want_originals)
+    user_id = message.from_user.id if message.from_user else 0
+    _user_results[user_id] = {
+        "query": message.text,
+        "remaining": results,
+        "raw": pending_raw,
+        "original": want_originals,
+        "current": first,
+    }
+    await feedback.record_query(user_id, message.text)
 
 
 @router.message(RawConfirm.waiting)
@@ -206,3 +257,48 @@ async def raw_confirm(message: Message, state: FSMContext) -> None:
     else:
         await _safe_answer(message, MSG_SKIP_RAW)
     await state.clear()
+
+
+@router.callback_query(F.data == "like")
+async def cb_like(callback: CallbackQuery, feedback: FeedbackStore) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    data = _user_results.get(user_id)
+    if not data:
+        await callback.answer("Немає фото для оцінки", show_alert=True)
+        return
+    await feedback.record_feedback(user_id, data["query"], data["current"], True)
+    await callback.answer("Дякуємо за відгук!")
+
+
+@router.callback_query(F.data == "dislike")
+async def cb_dislike(callback: CallbackQuery, feedback: FeedbackStore) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    data = _user_results.get(user_id)
+    if not data:
+        await callback.answer("Немає фото для оцінки", show_alert=True)
+        return
+    await feedback.record_feedback(user_id, data["query"], data["current"], False)
+    await callback.answer("Дякуємо за відгук!")
+
+
+@router.callback_query(F.data == "next")
+async def cb_next(callback: CallbackQuery, state: FSMContext) -> None:
+    user_id = callback.from_user.id if callback.from_user else 0
+    data = _user_results.get(user_id)
+    if not data:
+        await callback.answer("Немає нових зображень", show_alert=True)
+        return
+    if data["remaining"]:
+        next_path = data["remaining"].pop(0)
+        data["current"] = next_path
+        await _send_file(callback.message, next_path, as_original=data["original"])
+        await callback.answer()
+        return
+    if data["raw"] and not data["original"]:
+        await callback.message.answer(MSG_RAW_PROMPT)
+        await state.update_data(raw_files=data["raw"])
+        await state.set_state(RawConfirm.waiting)
+        data["raw"] = []
+        await callback.answer()
+        return
+    await callback.answer("Більше немає зображень", show_alert=True)
