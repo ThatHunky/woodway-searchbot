@@ -5,6 +5,8 @@
 This file codifies **repository‑wide rules** for *all* automated contributors or Large Language Models (LLMs) (e.g. OpenAI Codex, GitHub Copilot, internal chat‑ops agents).
 Rules are **rank‑ordered by priority**: if a more specific document (`CONTRIBUTING.md`, inline directive, issue comment, etc.) contradicts this guide, follow that local rule **and** update this file in the same pull‑request.
 
+For a reusable baseline, see `UNIVERSAL_AGENTS.md`; this file adds project‑specific details.
+
 ---
 
 \### 1  Repository Primer
@@ -23,11 +25,12 @@ Rules are **rank‑ordered by priority**: if a more specific document (`CONTRIBU
 
 1. **Clarity beats cleverness** — favour self‑documenting code, explicit imports, descriptive identifiers.
 2. **Small, atomic PRs** — ≤ 400 changed LOC; split large refactors.
-3. **Reversible by default** — every change must be revertable via `git revert` with no follow‑ups.
+3. **Reversible by default** — every change must be revertible via `git revert` with no follow‑ups.
 4. **Security first** — refuse to expose secrets or downgrade auth/crypto; see §6.
 5. **Follow canonical style** per §3.
 6. **Prompt‑aware** — respect in‑code comment directives (see §4).
 7. **Idempotent generation** — re‑running the same instruction should produce a byte‑for‑byte identical diff.
+8. **Continuous improvement** — agents may refine this guide when modifying the codebase. Each update must preserve existing rules and remain concise.
 
 ---
 
@@ -173,7 +176,7 @@ Ambiguities ⇒ open an issue with label `agent‑clarification` **and** ping th
 
 \### 11  Local Overrides & Extensions
 
-Agents should detect and respect optional files:
+Agents should detect and respect optional files. The baseline rules live in `UNIVERSAL_AGENTS.md` and may be extended per repository:
 
 * `.agentconfig` — per‑directory language overrides / feature flags.
 * `.codemod/` — automated refactor scripts & JSON schemas.

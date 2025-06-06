@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test runner for the woodway-searchbot."""
+"""Запуск тестів для woodway-searchbot."""
 
 import unittest
 import asyncio
@@ -7,10 +7,10 @@ import sys
 
 
 class AsyncioTestRunner(unittest.TextTestRunner):
-    """Test runner that handles async tests properly."""
+    """Тестовий раннер, що коректно працює з асинхронними тестами."""
 
     def run(self, test):
-        """Run the given test case or test suite."""
+        """Запустити вказаний тест або набір тестів."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -20,7 +20,7 @@ class AsyncioTestRunner(unittest.TextTestRunner):
 
 
 class AsyncioTestCase(unittest.IsolatedAsyncioTestCase):
-    """Base class for async test cases."""
+    """Базовий клас для асинхронних тестів."""
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -31,11 +31,11 @@ class AsyncioTestCase(unittest.IsolatedAsyncioTestCase):
             setattr(self, methodName, self._run_coroutine(method))
 
     def runTest(self) -> None:  # pragma: no cover - used for pytest collection
-        """Default no-op test method for unittest discovery."""
+        """Типовий порожній тест для виявлення unittest."""
         return None
 
     def _run_coroutine(self, coroutine):
-        """Wrap coroutine to run in the event loop."""
+        """Обгорнути корутину для запуску в циклі подій."""
 
         def wrapper(*args, **kwargs):
             loop = asyncio.get_event_loop()

@@ -1,10 +1,10 @@
-"""Telegram message handlers with RAW/original file support.
+"""Обробники повідомлень Telegram із підтримкою RAW та оригіналів.
 
-This module extends the basic photo search bot with logic for
-handling large files and optional RAW formats.  Photos over
-``10 MB`` are sent as documents and RAW files (.NEF, .CR2, etc.)
-are only shared on user request.  A simple FSM prompts the user
-when RAW files are available.
+Модуль розширює базовий бот пошуку фотографій логікою
+обробки великих файлів і необов'язкових RAW‑форматів.
+Фото понад ``10 MB`` надсилаються як документи,
+а RAW‑файли (.NEF, .CR2 тощо) передаються лише за запитом.
+Проста FSM повідомляє користувача про наявність таких файлів.
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ MSG_CANNOT_SEND = "Не вдалося надіслати файл {name}."
 
 
 class RawConfirm(StatesGroup):
-    """FSM state for confirming RAW file delivery."""
+    """Стан FSM для підтвердження відправки RAW‑файлів."""
 
     waiting = State()
 
@@ -121,7 +121,7 @@ async def _send_file(
     as_original: bool = False,
     keyboard: InlineKeyboardMarkup | None = _FEEDBACK_KB,
 ) -> None:
-    """Send ``path`` as photo or document with optional inline keyboard."""
+    """Надіслати ``path`` як фото або документ з інлайновою клавіатурою."""
 
     file_name = Path(path).name
     try:
@@ -150,7 +150,7 @@ async def _send_file(
 
 
 def _sanitize(text: str) -> str:
-    """Remove characters that may cause Telegram encoding errors."""
+    """Прибрати символи, які можуть спричинити помилки кодування Telegram."""
     return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
 
 
@@ -320,7 +320,7 @@ async def clarify_response(
 
 @router.message(RawConfirm.waiting)
 async def raw_confirm(message: Message, state: FSMContext) -> None:
-    """Handle user's decision on receiving RAW files."""
+    """Обробити рішення користувача щодо отримання RAW‑файлів."""
 
     answer = message.text.lower().strip()
     data = await state.get_data()
