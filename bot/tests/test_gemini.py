@@ -22,14 +22,14 @@ class TestGeminiClient(AsyncioTestCase):
         self.patcher.stop()
 
     def test_init(self):
-        """Test GeminiClient initialization."""
+        """Тест ініціалізації GeminiClient."""
         self.mock_genai.configure.assert_called_once_with(api_key="test_api_key")
         self.mock_genai.GenerativeModel.assert_called_once_with("gemini-1.5-flash")
         self.assertEqual(self.client.model, self.mock_model)
 
     @patch("asyncio.to_thread")
     async def test_extract_success(self, mock_to_thread):
-        """Test successful extraction from Gemini."""
+        """Тест успішного витягнення через Gemini."""
         # Setup mock response
         mock_response = MagicMock()
         mock_response.text = '["oak", "maple"]'
@@ -46,7 +46,7 @@ class TestGeminiClient(AsyncioTestCase):
 
     @patch("asyncio.to_thread")
     async def test_extract_code_fence(self, mock_to_thread):
-        """Gemini may wrap the JSON in markdown fences."""
+        """Gemini може обгорнути JSON у Markdown-блок."""
         mock_response = MagicMock()
         mock_response.text = '```json\n["oak"]\n```'
         mock_to_thread.return_value = mock_response
@@ -56,7 +56,7 @@ class TestGeminiClient(AsyncioTestCase):
 
     @patch("asyncio.to_thread")
     async def test_extract_invalid_json(self, mock_to_thread):
-        """Test handling invalid JSON response."""
+        """Тест обробки некоректної відповіді JSON."""
         # Setup mock response with invalid JSON
         mock_response = MagicMock()
         mock_response.text = "invalid json"
@@ -73,7 +73,7 @@ class TestGeminiClient(AsyncioTestCase):
 
     @patch("asyncio.to_thread")
     async def test_extract_exception(self, mock_to_thread):
-        """Test handling exception from Gemini."""
+        """Тест обробки виключення з Gemini."""
         # Setup mock to raise exception
         mock_to_thread.side_effect = Exception("API error")
 
@@ -87,7 +87,7 @@ class TestGeminiClient(AsyncioTestCase):
         self.assertEqual(result, ["maple"])
 
     def test_fallback_regex(self):
-        """Test the regex fallback method."""
+        """Тест резервного методу з регулярним виразом."""
         # Test with known words
         known_words = ["oak", "maple", "cherry"]
 

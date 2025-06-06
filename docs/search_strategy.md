@@ -1,17 +1,17 @@
-# Search Logic Overview
+# Огляд логіки пошуку
 
-The sample `share_structure.txt` shows a network share with several language and brand conventions:
+Файл `share_structure.txt` показує мережеву теку з кількома мовними та брендовими правилами:
 
-* Folders like `Stock` store background or web images not related to specific boards.
-* Product photos live under directories such as `Дошка`, `Ламель` and contain subfolders `No Logo`, `WoodWay`, `Шпон в Україні`.
-* Brand resources appear under `WoodWay`/`WW`, `Шпон в Україні`, `Байкал`/`Baykal`.
+* Папки на кшталт `Stock` містять фонові або веб‑зображення, не пов'язані з конкретними щитами.
+* Фото продукції розміщені у каталогах `Дошка`, `Ламель` і мають підтеки `No Logo`, `WoodWay`, `Шпон в Україні`.
+* Брендові матеріали знаходяться у `WoodWay`/`WW`, `Шпон в Україні`, `Байкал`/`Baykal`.
 
-Based on this structure the search utilities apply the following rules:
+Виходячи з цієї структури, утиліти пошуку застосовують такі правила:
 
-- **Board images by default** – any path containing stock keywords is skipped unless the user explicitly requests stock photos (`stock`, `сток`, `склад`).
-- **Brand handling** – queries containing brand identifiers (`woodway`, `ww`, `baykal`, `шпон`) surface images from those folders first and allow logo images.
-- **Synonym and transliteration support** – both the original tokens and their ASCII transliterations are indexed. A small synonym map helps match English species names (``oak`` → ``дуб`` etc.).
-- **Material synonyms** – common material types such as ``board``/``щит`` or ``veneer``/``шпон`` are also mapped to ensure queries in different languages return the same images.
-- **Logo filtering** – non‑brand queries ignore files whose path includes `logo`.
+- **Щити за замовчуванням** – шляхи зі стоковими ключовими словами пропускаються, поки користувач не вимагає стокові фото (`stock`, `сток`, `склад`).
+- **Опрацювання брендів** – запити з брендовими позначками (`woodway`, `ww`, `baykal`, `шпон`) спочатку показують зображення з цих папок та дозволяють логотипи.
+- **Синоніми та транслітерація** – індексуються як оригінальні токени, так і їхня ASCII-транслітерація. Невелика карта синонімів допомагає зіставити англійські назви порід (``oak`` → ``дуб`` тощо).
+- **Синоніми матеріалів** – поширені назви матеріалів, як ``board``/``щит`` чи ``veneer``/``шпон``, також зіставляються, щоб запити різними мовами давали однакові результати.
+- **Фільтрація логотипів** – небрендові запити ігнорують файли, у шляхах яких є `logo`.
 
-These heuristics keep results focused on relevant board photos while still allowing branded or stock content when explicitly requested.
+Такі евристики дозволяють тримати результати зосередженими на релевантних фото щитів, водночас даючи брендований чи стоковий контент, коли його просять.

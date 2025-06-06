@@ -20,7 +20,7 @@ _TOKEN_RE = re.compile(r"[^a-zA-Z0-9\u0400-\u04FF]+")
 
 
 def _tokenize(text: str) -> Iterable[str]:
-    """Yield lowercase tokens and their ASCII transliterations."""
+    """Генерувати токени у нижньому регістрі та їх ASCII‑транслітерації."""
 
     for token in _TOKEN_RE.split(text):
         if not token:
