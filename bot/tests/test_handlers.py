@@ -56,7 +56,7 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.os.path.getsize", return_value=100)
     @patch("bot.handlers.FSInputFile")
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_with_matches(self, mock_search, mock_fs_input, _size):
         """Тест текстового обробника з результатами."""
         # Setup mocks
@@ -86,7 +86,7 @@ class TestHandlers(AsyncioTestCase):
         self.parser.parse.assert_called_once_with("oak wood")
         self.synonyms.ensure.assert_called_once()
         mock_search.assert_called_once_with(
-            "oak", self.indexer.index, query_text="oak wood"
+            ["oak"], self.indexer.index, limit=5, query_text="oak wood"
         )
         self.message.answer.assert_not_called()
         self.assertEqual(self.message.answer_photo.call_count, 1)
@@ -118,7 +118,7 @@ class TestHandlers(AsyncioTestCase):
         self.message.answer.assert_called_once()
         self.message.answer_photo.assert_not_called()
 
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_clarification(self, mock_search):
         """Multiple keywords should trigger a clarification question."""
         self.parser.parse.return_value = {
@@ -147,7 +147,7 @@ class TestHandlers(AsyncioTestCase):
         self.assertIn("board", called_text)
         mock_search.assert_not_called()
 
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_no_results(self, mock_search):
         """Тест текстового обробника з ключовими словами, але без результатів."""
         # Setup mocks
@@ -176,7 +176,7 @@ class TestHandlers(AsyncioTestCase):
         self.message.answer.assert_called_once()
         self.message.answer_photo.assert_not_called()
 
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_broad_query(self, mock_search):
         """When too many images match a keyword, ask for clarification."""
         self.parser.parse.return_value = {
@@ -201,7 +201,7 @@ class TestHandlers(AsyncioTestCase):
             self.feedback,
         )
 
-        self.assertEqual(self.message.answer.call_count, 2)
+        self.assertEqual(self.message.answer.call_count, 1)
         self.message.answer_photo.assert_not_called()
 
     async def test_handle_text_clarify(self):
@@ -231,7 +231,7 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.os.path.getsize", return_value=100)
     @patch("bot.handlers.FSInputFile")
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_raw_prompt(self, mock_search, mock_fs_input, _size):
         """RAW files trigger a confirmation prompt."""
         self.parser.parse.return_value = {
@@ -260,7 +260,7 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.os.path.getsize", return_value=100)
     @patch("bot.handlers.FSInputFile")
-    @patch("bot.handlers.search_keyword")
+    @patch("bot.handlers.search_keywords")
     async def test_handle_text_originals(self, mock_search, mock_fs_input, _size):
         """Коли запитують «оригінали», усі файли надсилаються як документи."""
         self.message.text = "oak originals"
