@@ -8,6 +8,34 @@ from typing import Iterable
 
 from .gemini import GeminiClient
 
+# Synonym dictionaries used for canonicalisation and path matching
+SYNONYMS: dict[str, dict[str, set[str]]] = {
+    "species": {
+        "oak": {"oak", "дуб", "дуба", "дубова", "дубові", "дубовая", "dubova"},
+        "pine": {"pine", "сосна", "соснова", "сосновая"},
+        "walnut": {"walnut", "горіх", "горіхова", "орех"},
+    },
+    "product_type": {
+        "board": {
+            "board",
+            "дошка",
+            "дошки",
+            "дошку",
+            "доска",
+            "доски",
+            "doska",
+            "doshka",
+        },
+        "panel": {"panel", "панель", "плита"},
+        "lamella": {"lamella", "ламель", "ламелі"},
+    },
+    "finish": {
+        "sanded": {"sanded", "шліфована", "шліфований"},
+        "lacquered": {"lacquered", "лакова", "лакування"},
+        "rough": {"rough", "сирувата"},
+    },
+}
+
 
 @dataclass(slots=True)
 class SynonymStore:
@@ -42,3 +70,17 @@ class SynonymStore:
     def expand(self, word: str) -> set[str]:
         lower = word.lower()
         return {lower, *self.data.get(lower, set())}
+
+
+def canonicalize(group: str, word: str | None) -> str:
+    """Return canonical value for ``word`` within a synonym ``group``."""
+    if not word:
+        return ""
+    lower = word.lower()
+    for canonical, syns in SYNONYMS.get(group, {}).items():
+        if lower == canonical or lower in syns:
+            return canonical
+    return lower
+
+
+__all__ = ["SynonymStore", "SYNONYMS", "canonicalize"]

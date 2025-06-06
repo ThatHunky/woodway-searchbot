@@ -33,8 +33,20 @@ import re
 from loguru import logger
 from rapidfuzz import fuzz
 from unidecode import unidecode
+import asyncio
+import os
+import json
+import logging
+from pathlib import Path
+from typing import Any, List
+from aiogram import types
+from rapidfuzz import process
 
-from .synonyms import SynonymStore
+from .synonyms import SynonymStore, SYNONYMS, canonicalize
+from .gemini_parser import GeminiParser
+from .models import QueryLog
+
+FUZZY_THRESHOLD = 80
 
 _UKR_RE = re.compile("[а-яіїєґА-ЯІЇЄҐ]")
 _STOCK_WORDS = {"stock", "сток", "склад"}
@@ -269,3 +281,220 @@ def search_text(
         return []
     logger.debug("Searching %s -> tokens=%s", text, tokens)
     return search_keywords(tokens, index, limit, query_text=text)
+
+
+# -------------------------- Folder Search Logic ---------------------------
+
+
+DIM_REGEX = re.compile(
+    r"(?P<width>\d{1,3})(?:\s*[×xхX]\s*(?P<height>\d{1,3}))?\s*(мм|mm)\b",
+    re.IGNORECASE,
+)
+
+
+def normalize_dimensions(dim_text: str | None) -> str | None:
+    """Normalise dimension strings to the form ``"20×40 mm"``."""
+
+    if not dim_text:
+        return None
+    match = DIM_REGEX.search(dim_text.replace(" ", ""))
+    if not match:
+        return dim_text.strip().lower()
+    width = match.group("width")
+    height = match.group("height")
+    if height:
+        return f"{width}×{height} mm"
+    return f"{width} mm"
+
+
+def parse_query_with_gemini(text: str) -> dict[str, Any]:
+    """Synchronously parse ``text`` using :class:`GeminiParser`."""
+
+    parser = GeminiParser(os.environ.get("GEMINI_API_KEY", ""))
+    return asyncio.run(parser.parse(text))
+
+
+def load_indexed_folder_paths() -> List[str]:
+    """Load unique folder paths from ``index.json``."""
+
+    index_file = Path("index.json")
+    if not index_file.exists():
+        return []
+    try:
+        content = index_file.read_text(encoding="utf-8")
+        data = json.loads(content)
+    except Exception:  # noqa: BLE001
+        logging.exception("Failed to load index.json")
+        return []
+    folders: set[str] = set()
+    for paths in data.values():
+        for img in paths:
+            folders.add(str(Path(img).parent))
+    return sorted(folders)
+
+
+def get_images_for_folder(folder: str) -> List[str]:
+    """Return all images belonging to ``folder`` from the index."""
+
+    index_file = Path("index.json")
+    if not index_file.exists():
+        return []
+    try:
+        data = json.loads(index_file.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        logging.exception("Failed to read index.json")
+        return []
+    images: list[str] = []
+    folder = Path(folder).as_posix()
+    for paths in data.values():
+        for img in paths:
+            if Path(img).parent.as_posix() == folder:
+                images.append(img)
+    return images
+
+
+def send_photos_with_feedback(chat_id: int, folder: str, images: List[str]) -> None:
+    """Placeholder for sending photos via Telegram."""
+
+    logging.info(
+        "Would send %d images from %s to chat %s", len(images[:5]), folder, chat_id
+    )
+
+
+async def handle_user_message(message: types.Message) -> None:
+    """Process a raw user message and return photos from the best folder."""
+
+    raw_text = message.text.strip()
+    parsed = parse_query_with_gemini(raw_text)
+
+    if parsed.get("clarification"):
+        await message.reply(parsed["clarification"])
+        return
+
+    species_key = parsed.get("species") or ""
+    product_key = parsed.get("product_type") or ""
+    dims_key = normalize_dimensions(parsed.get("dimensions"))
+
+    species = canonicalize("species", species_key)
+    product_type = canonicalize("product_type", product_key)
+    dimensions = dims_key or ""
+
+    parts = [p for p in (species, product_type, dimensions) if p]
+    search_key = " ".join(parts)
+
+    all_folders = load_indexed_folder_paths()
+    candidates: list[str] = []
+    species_variants = SYNONYMS.get("species", {}).get(species, {species})
+    product_variants = SYNONYMS.get("product_type", {}).get(
+        product_type, {product_type}
+    )
+    for folder in all_folders:
+        low = folder.lower()
+        if any(s in low for s in species_variants) and any(
+            p in low for p in product_variants
+        ):
+            candidates.append(folder)
+
+    logging.debug(
+        "Found %d candidate folders containing both '%s' and '%s'.",
+        len(candidates),
+        species,
+        product_type,
+    )
+
+    if not candidates:
+        await message.reply(
+            "В каталозі не знайдено жодної папки, яка містить одночасно 'дуб' і 'дошка'.\n"
+            "Перевірте правильність запиту або уточніть, будь ласка."
+        )
+        QueryLog.create(
+            raw_text=raw_text,
+            parsed=parsed,
+            search_key=search_key,
+            matched_folder=None,
+            fallbacks=[],
+        )
+        return
+
+    exact_key = search_key
+    matched_folder: str | None = None
+    for folder in candidates:
+        if folder.lower().replace("_", " ").replace("-", " ") == exact_key:
+            matched_folder = folder
+            logging.info(
+                "Exact folder match for '%s' \u2192 '%s'.", search_key, matched_folder
+            )
+            break
+
+    top_suggestions: list[str] = []
+    if not matched_folder:
+        matches = process.extract(
+            exact_key,
+            candidates,
+            scorer=fuzz.WRatio,
+            limit=3,
+        )
+        good = [m for m in matches if m[1] >= FUZZY_THRESHOLD]
+        if good:
+            good.sort(
+                key=lambda m: (
+                    dimensions.lower() in m[0].lower(),
+                    m[1],
+                ),
+                reverse=True,
+            )
+        top_suggestions = [m[0] for m in matches[:3]]
+        logging.debug("Top candidates (with fuzzy scores):")
+        for candidate_path, score, _ in matches[:3]:
+            logging.debug("  - %s (score=%s)", candidate_path, score)
+        if good:
+            matched_folder = good[0][0]
+            logging.info(
+                "Fuzzy match for '%s' \u2192 '%s' (score=%s).",
+                search_key,
+                matched_folder,
+                good[0][1],
+            )
+
+    if not matched_folder:
+        fallback_texts = [f"{i + 1}) {cand}" for i, cand in enumerate(top_suggestions)]
+        prompt = (
+            f"Не знайдено точного співпадіння для '{raw_text}'.\n"
+            f"Можливо, ви мали на увазі:\n" + "\n".join(fallback_texts) + "\n"
+            "Напишіть номер (1–3) або уточніть запит."
+        )
+        await message.reply(prompt)
+        logging.warning(
+            "No suitable folder for '%s'. Fallback suggestions: %s",
+            search_key,
+            ", ".join(top_suggestions),
+        )
+        QueryLog.create(
+            raw_text=raw_text,
+            parsed=parsed,
+            search_key=search_key,
+            matched_folder=None,
+            fallbacks=top_suggestions,
+        )
+        return
+
+    image_paths = get_images_for_folder(matched_folder)
+    if not image_paths:
+        await message.reply("Фотографій не знайдено у обраній папці.")
+        QueryLog.create(
+            raw_text=raw_text,
+            parsed=parsed,
+            search_key=search_key,
+            matched_folder=matched_folder,
+            fallbacks=[],
+        )
+        return
+
+    send_photos_with_feedback(message.chat.id, matched_folder, image_paths)
+    QueryLog.create(
+        raw_text=raw_text,
+        parsed=parsed,
+        search_key=search_key,
+        matched_folder=matched_folder,
+        fallbacks=[],
+    )
