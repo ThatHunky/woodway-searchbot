@@ -40,6 +40,8 @@ class TestHandlers(AsyncioTestCase):
 
         self.gemini = MagicMock()
         self.gemini.interpret = AsyncMock()
+        self.parser = MagicMock()
+        self.parser.parse = AsyncMock()
         handlers._force_index_cooldowns.clear()
         self.feedback = MagicMock()
         self.feedback.record_query = AsyncMock()
@@ -58,7 +60,13 @@ class TestHandlers(AsyncioTestCase):
     async def test_handle_text_with_matches(self, mock_search, mock_fs_input, _size):
         """Тест текстового обробника з результатами."""
         # Setup mocks
-        self.gemini.interpret.return_value = (["oak"], "high")
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "high",
+        }
         mock_search.return_value = ["/test/path/oak1.jpg", "/test/path/oak2.jpg"]
         mock_fs_input.side_effect = lambda path: path  # Just return the path
 
@@ -68,15 +76,14 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
         )
 
         # Verify behavior
-        self.gemini.interpret.assert_called_once_with(
-            "oak wood", self.indexer.index.keys()
-        )
+        self.parser.parse.assert_called_once_with("oak wood")
         self.synonyms.ensure.assert_called_once()
         mock_search.assert_called_once_with(
             "oak", self.indexer.index, query_text="oak wood"
@@ -87,7 +94,13 @@ class TestHandlers(AsyncioTestCase):
     async def test_handle_text_no_keywords(self):
         """Тест текстового обробника без знайдених ключових слів."""
         # Setup mock
-        self.gemini.interpret.return_value = ([], "low")
+        self.parser.parse.return_value = {
+            "species": None,
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "low",
+        }
 
         # Call handler
         await handle_text(
@@ -95,6 +108,7 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -107,13 +121,20 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_clarification(self, mock_search):
         """Multiple keywords should trigger a clarification question."""
-        self.gemini.extract.return_value = ["oak", "maple"]
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": "board",
+            "dimensions": None,
+            "finish": None,
+            "confidence": "medium",
+        }
 
         await handle_text(
             self.message,
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -123,14 +144,20 @@ class TestHandlers(AsyncioTestCase):
         called_text = self.message.answer.call_args.args[0]
         self.assertIn("Did you mean", called_text)
         self.assertIn("oak", called_text)
-        self.assertIn("maple", called_text)
+        self.assertIn("board", called_text)
         mock_search.assert_not_called()
 
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_no_results(self, mock_search):
         """Тест текстового обробника з ключовими словами, але без результатів."""
         # Setup mocks
-        self.gemini.interpret.return_value = (["walnut"], "high")
+        self.parser.parse.return_value = {
+            "species": "walnut",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "high",
+        }
         mock_search.return_value = []
 
         # Call handler
@@ -139,6 +166,7 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -151,7 +179,13 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_broad_query(self, mock_search):
         """When too many images match a keyword, ask for clarification."""
-        self.gemini.interpret.return_value = (["oak"], "high")
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "high",
+        }
 
         self.indexer.index["oak"] = [f"/t/{i}.jpg" for i in range(100)]
         mock_search.return_value = self.indexer.index["oak"][:5]
@@ -161,6 +195,7 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -171,13 +206,20 @@ class TestHandlers(AsyncioTestCase):
 
     async def test_handle_text_clarify(self):
         """Medium confidence triggers clarification question."""
-        self.gemini.interpret.return_value = (["oak"], "medium")
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "medium",
+        }
 
         await handle_text(
             self.message,
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -192,7 +234,13 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_raw_prompt(self, mock_search, mock_fs_input, _size):
         """RAW files trigger a confirmation prompt."""
-        self.gemini.interpret.return_value = (["oak"], "high")
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "high",
+        }
 
         mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
         mock_fs_input.side_effect = lambda path: path
@@ -202,6 +250,7 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,
@@ -215,7 +264,13 @@ class TestHandlers(AsyncioTestCase):
     async def test_handle_text_originals(self, mock_search, mock_fs_input, _size):
         """Коли запитують «оригінали», усі файли надсилаються як документи."""
         self.message.text = "oak originals"
-        self.gemini.interpret.return_value = (["oak"], "high")
+        self.parser.parse.return_value = {
+            "species": "oak",
+            "product_type": None,
+            "dimensions": None,
+            "finish": None,
+            "confidence": "high",
+        }
         mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
         mock_fs_input.side_effect = lambda path: path
 
@@ -224,6 +279,7 @@ class TestHandlers(AsyncioTestCase):
             self.config,
             self.indexer,
             self.gemini,
+            self.parser,
             self.synonyms,
             self.state,
             self.feedback,

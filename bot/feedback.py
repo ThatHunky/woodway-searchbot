@@ -20,6 +20,7 @@ class FeedbackStore:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 query TEXT,
+                success INTEGER,
                 ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS feedback(
@@ -34,11 +35,11 @@ class FeedbackStore:
         )
         await self.conn.commit()
 
-    async def record_query(self, user_id: int, query: str) -> None:
+    async def record_query(self, user_id: int, query: str, success: bool) -> None:
         if self.conn:
             await self.conn.execute(
-                "INSERT INTO queries(user_id, query) VALUES (?, ?)",
-                (user_id, query),
+                "INSERT INTO queries(user_id, query, success) VALUES (?, ?, ?)",
+                (user_id, query, int(success)),
             )
             await self.conn.commit()
 

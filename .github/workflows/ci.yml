@@ -34,6 +34,9 @@ jobs:
       - name: Tests
         run: pytest -q
 
+      - name: Run extended unit tests
+        run: python -m pytest -q bot/tests/test_search_combinations.py bot/tests/test_gemini_parser2.py
+
       - name: Generate SBOM & Sign artefacts
         run: |
           cyclonedx-py requirements -o sbom.xml requirements.txt

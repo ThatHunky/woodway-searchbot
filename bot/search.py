@@ -152,6 +152,27 @@ def _is_brand_query(text: str) -> bool:
     return any(word in lowered for word in _BRAND_WORDS)
 
 
+_UNIT_RE = re.compile(r"\b\d+\s*(?:мм|mm|cm|см|m|м)\b", re.IGNORECASE)
+
+
+def sanitize_query(text: str) -> str:
+    """Remove measurements like ``32 мм`` from ``text`` for cleaner keyword extraction."""
+    return _UNIT_RE.sub(" ", text)
+
+
+def suggest_keywords(
+    keyword: str, index: dict[str, list[str]], limit: int = 3
+) -> list[str]:
+    """Return up to ``limit`` closest index tokens to ``keyword``."""
+    scores = []
+    for key in index.keys():
+        score = fuzz.token_set_ratio(keyword, key)
+        if score >= 60:
+            scores.append((score, key))
+    scores.sort(reverse=True)
+    return [k for _s, k in scores[:limit]]
+
+
 def search_keyword(
     keyword: str,
     index: dict[str, list[str]],

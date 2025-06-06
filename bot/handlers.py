@@ -24,7 +24,6 @@ from pathlib import Path
 from time import monotonic
 from typing import Iterable
 import os
-import inspect
 
 from .config import Config
 from .gemini import GeminiClient
@@ -34,10 +33,12 @@ import re
 
 from .search import (
     search_keyword,
-    rate_confidence,
     display_keyword,
+    sanitize_query,
+    suggest_keywords,
 )
 from .synonyms import SynonymStore
+from .gemini_parser import GeminiParser
 
 router = Router()
 
@@ -223,7 +224,19 @@ async def _search_and_send(
             await state.update_data(raw_files=pending_raw)
             await state.set_state(RawConfirm.waiting)
         else:
-            await _safe_answer(message, "Нічого не знайшов 🤷")
+            suggestions: set[str] = set()
+            for kw in keywords:
+                suggestions.update(suggest_keywords(kw, indexer.index))
+            if suggestions:
+                opts = ", ".join(sorted(suggestions)[:3])
+                await _safe_answer(
+                    message,
+                    f"Нічого не знайшов. Можливо: {opts}?",
+                )
+            else:
+                await _safe_answer(message, "Нічого не знайшов 🤷")
+        user_id = message.from_user.id if message.from_user else 0
+        await feedback.record_query(user_id, query_text, False)
         return
 
     first = results.pop(0)
@@ -236,7 +249,7 @@ async def _search_and_send(
         "original": want_originals,
         "current": first,
     }
-    await feedback.record_query(user_id, query_text)
+    await feedback.record_query(user_id, query_text, True)
 
 
 @router.message(CommandStart())
@@ -282,23 +295,27 @@ async def handle_text(
     config: Config,
     indexer: Indexer,
     gemini: GeminiClient,
+    parser: GeminiParser,
     synonyms: SynonymStore,
     state: FSMContext,
     feedback: FeedbackStore,
 ) -> None:
-    try:
-        keywords, confidence = await gemini.interpret(
-            message.text, indexer.index.keys()
-        )
-    except Exception:  # noqa: BLE001 - fallback to extract
-        result = gemini.extract(message.text, indexer.index.keys())
-        keywords = await result if inspect.isawaitable(result) else result
-        confidence = rate_confidence(keywords)
-
+    clean_text = sanitize_query(message.text)
+    parsed = await parser.parse(clean_text)
+    if parsed.get("clarification"):
+        await _safe_answer(message, parsed["clarification"])
+        return
+    keywords = [
+        parsed.get("species"),
+        parsed.get("product_type"),
+        parsed.get("dimensions"),
+        parsed.get("finish"),
+    ]
+    keywords = [k for k in keywords if k]
     if not keywords:
         await _safe_answer(message, "Нічого не знайшов 🤷")
         return
-
+    confidence = parsed.get("confidence", "high")
     user_id = message.from_user.id if message.from_user else 0
     if confidence != "high":
         await _ask_clarification(message, keywords)
@@ -324,6 +341,7 @@ async def clarify_response(
     config: Config,
     indexer: Indexer,
     gemini: GeminiClient,
+    parser: GeminiParser,
     synonyms: SynonymStore,
     state: FSMContext,
     feedback: FeedbackStore,
@@ -333,7 +351,9 @@ async def clarify_response(
     data = _pending_queries.pop(user_id, None)
     if not data:
         await state.clear()
-        await handle_text(message, config, indexer, gemini, synonyms, state, feedback)
+        await handle_text(
+            message, config, indexer, gemini, parser, synonyms, state, feedback
+        )
         return
     if answer in {"yes", "y", "да", "так"} and data["keywords"]:
         await state.clear()
