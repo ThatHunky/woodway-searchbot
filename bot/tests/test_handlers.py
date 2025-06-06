@@ -48,7 +48,7 @@ class TestHandlers(AsyncioTestCase):
         self.synonyms.ensure = AsyncMock()
 
     async def test_start_cmd(self):
-        """Test the start command handler."""
+        """Тест обробника команди start."""
         await start_cmd(self.message)
         self.message.answer.assert_called_once()
 
@@ -56,7 +56,7 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.FSInputFile")
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_with_matches(self, mock_search, mock_fs_input, _size):
-        """Test text handler with matches."""
+        """Тест текстового обробника з результатами."""
         # Setup mocks
         self.gemini.extract.return_value = ["oak"]
         mock_search.return_value = ["/test/path/oak1.jpg", "/test/path/oak2.jpg"]
@@ -85,7 +85,7 @@ class TestHandlers(AsyncioTestCase):
         self.assertEqual(self.message.answer_photo.call_count, 1)
 
     async def test_handle_text_no_keywords(self):
-        """Test text handler with no keywords found."""
+        """Тест текстового обробника без знайдених ключових слів."""
         # Setup mock
         self.gemini.extract.return_value = []
 
@@ -106,7 +106,7 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_no_results(self, mock_search):
-        """Test text handler with keywords but no search results."""
+        """Тест текстового обробника з ключовими словами, але без результатів."""
         # Setup mocks
         self.gemini.extract.return_value = ["walnut"]
         mock_search.return_value = []
@@ -128,7 +128,7 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_broad_query(self, mock_search):
-        """When too many images match a keyword, ask for clarification."""
+        """Коли занадто багато зображень відповідає ключу, слід попросити уточнення."""
         self.gemini.extract.return_value = ["oak"]
         self.indexer.index["oak"] = [f"/t/{i}.jpg" for i in range(100)]
         mock_search.return_value = self.indexer.index["oak"][:5]
@@ -150,7 +150,7 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.FSInputFile")
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_raw_prompt(self, mock_search, mock_fs_input, _size):
-        """RAW files trigger a confirmation prompt."""
+        """RAW‑файли викликають запит на підтвердження."""
         self.gemini.extract.return_value = ["oak"]
         mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
         mock_fs_input.side_effect = lambda path: path
@@ -171,7 +171,7 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.FSInputFile")
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_originals(self, mock_search, mock_fs_input, _size):
-        """When 'originals' requested, send all files as documents."""
+        """Коли запитують «оригінали», усі файли надсилаються як документи."""
         self.message.text = "oak originals"
         self.gemini.extract.return_value = ["oak"]
         mock_search.return_value = ["/test/path/oak1.nef", "/test/path/oak2.jpg"]
