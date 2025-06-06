@@ -37,4 +37,4 @@ jobs:
       - name: Generate SBOM & Sign artefacts
         run: |
           cyclonedx-py requirements -o sbom.xml requirements.txt
-          cosign attest --yes --output-signature sbom.sig sbom.xml
+          cosign sign-blob --yes --output-signature sbom.sig sbom.xml
