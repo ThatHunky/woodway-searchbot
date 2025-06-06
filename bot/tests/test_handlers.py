@@ -120,6 +120,10 @@ class TestHandlers(AsyncioTestCase):
         )
 
         self.message.answer.assert_called_once()
+        called_text = self.message.answer.call_args.args[0]
+        self.assertIn("Did you mean", called_text)
+        self.assertIn("oak", called_text)
+        self.assertIn("maple", called_text)
         mock_search.assert_not_called()
 
     @patch("bot.handlers.search_keyword")

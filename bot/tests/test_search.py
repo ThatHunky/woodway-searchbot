@@ -4,6 +4,7 @@ from bot.search import (
     search_keywords,
     canonical_keyword,
     rate_confidence,
+    display_keyword,
 )
 
 
@@ -78,6 +79,10 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(rate_confidence(["oak"]), "high")
         self.assertEqual(rate_confidence(["oak", "maple"]), "medium")
         self.assertEqual(rate_confidence([]), "low")
+
+    def test_display_keyword(self):
+        self.assertEqual(display_keyword("oak", "uk"), "дуб")
+        self.assertEqual(display_keyword("oak", "en"), "oak")
 
 
 if __name__ == "__main__":

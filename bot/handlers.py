@@ -31,7 +31,11 @@ from .indexer import Indexer, IMAGE_EXTS
 from .feedback import FeedbackStore
 import re
 
-from .search import search_keyword, canonical_keyword, rate_confidence
+from .search import (
+    search_keyword,
+    rate_confidence,
+    display_keyword,
+)
 from .synonyms import SynonymStore
 
 router = Router()
@@ -117,10 +121,13 @@ def _is_ukrainian(text: str) -> bool:
 
 
 async def _ask_clarification(message: Message, keywords: Iterable[str]) -> None:
-    options = ", ".join(sorted({canonical_keyword(k) for k in keywords})[:3])
+    lang = "uk" if _is_ukrainian(message.text) else "en"
+    options = ", ".join(
+        sorted({display_keyword(k, language=lang) for k in keywords})[:3]
+    )
     text = (
         f"Чи правильно я розумію, ви маєте на увазі: {options}?"
-        if _is_ukrainian(message.text)
+        if lang == "uk"
         else f"Did you mean: {options}?"
     )
     await _safe_answer(message, text)

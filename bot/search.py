@@ -28,11 +28,13 @@ from __future__ import annotations
 
 import random
 from typing import Iterable
+import re
 
 from rapidfuzz import fuzz
 
 from .synonyms import SynonymStore
 
+_UKR_RE = re.compile("[а-яіїєґА-ЯІЇЄҐ]")
 _STOCK_WORDS = {"stock", "сток", "склад"}
 _BRAND_WORDS = {
     "woodway",
@@ -87,6 +89,20 @@ def canonical_keyword(word: str) -> str:
         if lower == base or lower in synonyms:
             return base
     return lower
+
+
+def display_keyword(word: str, language: str = "en") -> str:
+    """Return a human readable form of ``word`` in the desired ``language``."""
+    base = canonical_keyword(word)
+    if language == "uk":
+        if _synonym_store and base in _synonym_store.data:
+            for syn in _synonym_store.data[base]:
+                if _UKR_RE.search(syn):
+                    return syn
+        for syn in _SYNONYMS.get(base, set()):
+            if _UKR_RE.search(syn):
+                return syn
+    return base
 
 
 def rate_confidence(words: Iterable[str]) -> str:
