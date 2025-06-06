@@ -20,20 +20,15 @@ _JSON_START = re.compile(r"[\[{]")
 
 
 def _find_json(content: str) -> Optional[str]:
-    """Повернути перший валідний JSON-блок у рядку."""
-    start_match = _JSON_START.search(content)
-    if not start_match:
-        return None
-    start = start_match.start()
-    stack = [content[start]]
-    for i in range(start + 1, len(content)):
-        ch = content[i]
-        if ch in "[{":
-            stack.append(ch)
-        elif ch in "]}":
-            stack.pop()
-            if not stack:
-                return content[start : i + 1]
+    """Return the first valid JSON block within ``content``."""
+    decoder = json.JSONDecoder()
+    for match in _JSON_START.finditer(content):
+        try:
+            _obj, end = decoder.raw_decode(content, match.start())
+        except json.JSONDecodeError:
+            continue
+        else:
+            return content[match.start() : end]
     return None
 
 

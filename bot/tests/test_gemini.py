@@ -55,6 +55,16 @@ class TestGeminiClient(AsyncioTestCase):
         self.assertEqual(result, ["oak"])
 
     @patch("asyncio.to_thread")
+    async def test_synonyms_braces(self, mock_to_thread):
+        """JSON з дужками всередині рядків має коректно парситися."""
+        mock_response = MagicMock()
+        mock_response.text = '{"oak": ["d{ub}", "дуб"]}'
+        mock_to_thread.return_value = mock_response
+
+        result = await self.client.synonyms(["oak"])
+        self.assertEqual(result, {"oak": ["d{ub}", "дуб"]})
+
+    @patch("asyncio.to_thread")
     async def test_extract_invalid_json(self, mock_to_thread):
         """Тест обробки некоректної відповіді JSON."""
         # Setup mock response with invalid JSON
