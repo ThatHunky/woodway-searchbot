@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -13,18 +14,15 @@ SYSTEM_PROMPT = PROMPT_PATH.read_text(encoding="utf-8")
 
 
 def _find_json(content: str) -> str | None:
-    start = content.find("{")
-    if start == -1:
-        return None
-    stack = ["{"]
-    for i in range(start + 1, len(content)):
-        ch = content[i]
-        if ch == "{":
-            stack.append(ch)
-        elif ch == "}":
-            stack.pop()
-            if not stack:
-                return content[start : i + 1]
+    """Return the first JSON object in ``content``."""
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"{", content):
+        try:
+            _obj, end = decoder.raw_decode(content, match.start())
+        except json.JSONDecodeError:
+            continue
+        else:
+            return content[match.start() : end]
     return None
 
 
