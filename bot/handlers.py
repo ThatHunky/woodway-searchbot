@@ -22,13 +22,20 @@ from aiogram.types import (
 )
 from pathlib import Path
 from time import monotonic
+from typing import Iterable
 import os
 
 from .config import Config
 from .gemini import GeminiClient
 from .indexer import Indexer, IMAGE_EXTS
 from .feedback import FeedbackStore
-from .search import search_keyword
+import re
+
+from .search import (
+    search_keyword,
+    rate_confidence,
+    display_keyword,
+)
 from .synonyms import SynonymStore
 
 router = Router()
@@ -112,6 +119,26 @@ def _wants_originals(text: str) -> bool:
         ".dng",
     }
     return any(k in lowered for k in keywords)
+
+
+_UKR_RE = re.compile("[а-яіїєґА-ЯІЇЄҐ]")
+
+
+def _is_ukrainian(text: str) -> bool:
+    return bool(_UKR_RE.search(text))
+
+
+async def _ask_clarification(message: Message, keywords: Iterable[str]) -> None:
+    lang = "uk" if _is_ukrainian(message.text) else "en"
+    options = ", ".join(
+        sorted({display_keyword(k, language=lang) for k in keywords})[:3]
+    )
+    text = (
+        f"Чи правильно я розумію, ви маєте на увазі: {options}?"
+        if lang == "uk"
+        else f"Did you mean: {options}?"
+    )
+    await _safe_answer(message, text)
 
 
 async def _send_file(
@@ -258,10 +285,25 @@ async def handle_text(
     state: FSMContext,
     feedback: FeedbackStore,
 ) -> None:
-    keywords, confidence = await gemini.interpret(message.text, indexer.index.keys())
-    user_id = message.from_user.id if message.from_user else 0
-    if confidence != "high":
-        if keywords:
+
+    keywords = await gemini.extract(message.text, indexer.index.keys())
+    if not keywords:
+        await _safe_answer(message, "Нічого не знайшов 🤷")
+        return
+
+    await synonyms.ensure(keywords, gemini)
+    if rate_confidence(keywords) != "high":
+        await _ask_clarification(message, keywords)
+        return
+
+    want_originals = _wants_originals(message.text)
+    pending_raw: list[str] = []
+    results: list[str] = []
+
+    for kw in keywords:
+        total = len(indexer.index.get(kw, []))
+        if total > _BROAD_QUERY_THRESHOLD:
+
             await _safe_answer(
                 message,
                 f"Я правильно зрозумів, ви шукаєте: {', '.join(keywords)}? (Так/Ні)",
