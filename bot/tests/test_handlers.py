@@ -105,6 +105,24 @@ class TestHandlers(AsyncioTestCase):
         self.message.answer_photo.assert_not_called()
 
     @patch("bot.handlers.search_keyword")
+    async def test_handle_text_clarification(self, mock_search):
+        """Multiple keywords should trigger a clarification question."""
+        self.gemini.extract.return_value = ["oak", "maple"]
+
+        await handle_text(
+            self.message,
+            self.config,
+            self.indexer,
+            self.gemini,
+            self.synonyms,
+            self.state,
+            self.feedback,
+        )
+
+        self.message.answer.assert_called_once()
+        mock_search.assert_not_called()
+
+    @patch("bot.handlers.search_keyword")
     async def test_handle_text_no_results(self, mock_search):
         """Test text handler with keywords but no search results."""
         # Setup mocks

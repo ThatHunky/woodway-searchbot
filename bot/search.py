@@ -76,6 +76,29 @@ def set_synonym_store(store: SynonymStore) -> None:
     _synonym_store = store
 
 
+def canonical_keyword(word: str) -> str:
+    """Return the canonical form of ``word`` using the synonym maps."""
+    lower = word.lower()
+    if _synonym_store:
+        for base, syns in _synonym_store.data.items():
+            if lower == base or lower in syns:
+                return base
+    for base, synonyms in _SYNONYMS.items():
+        if lower == base or lower in synonyms:
+            return base
+    return lower
+
+
+def rate_confidence(words: Iterable[str]) -> str:
+    """Return ``high``/``medium``/``low`` confidence for ``words``."""
+    canonical = {canonical_keyword(w) for w in words}
+    if not canonical:
+        return "low"
+    if len(canonical) == 1:
+        return "high"
+    return "medium"
+
+
 def _expand_keyword(keyword: str) -> set[str]:
     """Return keyword plus synonyms for fuzzy matching."""
     lower = keyword.lower()

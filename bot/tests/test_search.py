@@ -1,5 +1,10 @@
 import unittest
-from bot.search import search_keyword, search_keywords
+from bot.search import (
+    search_keyword,
+    search_keywords,
+    canonical_keyword,
+    rate_confidence,
+)
 
 
 class TestSearch(unittest.TestCase):
@@ -64,6 +69,15 @@ class TestSearch(unittest.TestCase):
         self.assertGreaterEqual(len(results), 2)
         self.assertTrue(any("oak" in path for path in results))
         self.assertTrue(any("maple" in path for path in results))
+
+    def test_canonical_keyword(self):
+        self.assertEqual(canonical_keyword("дуб"), "oak")
+        self.assertEqual(canonical_keyword("oak"), "oak")
+
+    def test_rate_confidence(self):
+        self.assertEqual(rate_confidence(["oak"]), "high")
+        self.assertEqual(rate_confidence(["oak", "maple"]), "medium")
+        self.assertEqual(rate_confidence([]), "low")
 
 
 if __name__ == "__main__":
