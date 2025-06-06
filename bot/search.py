@@ -1,4 +1,3 @@
-
 """Утиліти для нечіткого пошуку в індексованій фототеці.
 
 Файл ``share_structure.txt`` показує, що фото впорядковані за породами дерев у
@@ -24,6 +23,7 @@
 Ці утиліти надають ``search_keyword`` і ``search_keywords``, що
 застосовують наведені евристики із ``rapidfuzz.token_set_ratio``.
 """
+
 from __future__ import annotations
 
 import random

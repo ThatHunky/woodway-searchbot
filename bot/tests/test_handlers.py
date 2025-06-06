@@ -150,7 +150,6 @@ class TestHandlers(AsyncioTestCase):
 
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_broad_query(self, mock_search):
-
         """When too many images match a keyword, ask for clarification."""
         self.gemini.interpret.return_value = (["oak"], "high")
 
@@ -192,7 +191,6 @@ class TestHandlers(AsyncioTestCase):
     @patch("bot.handlers.FSInputFile")
     @patch("bot.handlers.search_keyword")
     async def test_handle_text_raw_prompt(self, mock_search, mock_fs_input, _size):
-
         """RAW files trigger a confirmation prompt."""
         self.gemini.interpret.return_value = (["oak"], "high")
 

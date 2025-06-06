@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Iterable
+from typing import Iterable, Optional
 
 import google.generativeai as genai
 from loguru import logger
@@ -14,9 +14,27 @@ PROMPT = (
     "Відповідайте лише сирим JSON-масивом рядків. Якщо нічого не знайдено, поверніть порожній масив."
 )
 
-# Gemini іноді обгортає JSON‑масив у Markdown-блок.
-# Цей регекс допомагає його знайти.
-_JSON_RE = re.compile(r"\[.*?\]", re.S)
+# Gemini іноді повертає JSON у Markdown-блоці.
+# Цей регекс знаходить першу дужку для швидкого пошуку.
+_JSON_START = re.compile(r"[\[{]")
+
+
+def _find_json(content: str) -> Optional[str]:
+    """Повернути перший валідний JSON-блок у рядку."""
+    start_match = _JSON_START.search(content)
+    if not start_match:
+        return None
+    start = start_match.start()
+    stack = [content[start]]
+    for i in range(start + 1, len(content)):
+        ch = content[i]
+        if ch in "[{":
+            stack.append(ch)
+        elif ch in "]}":
+            stack.pop()
+            if not stack:
+                return content[start : i + 1]
+    return None
 
 
 class GeminiClient:
@@ -30,9 +48,9 @@ class GeminiClient:
                 self.model.generate_content, f"{PROMPT}\n\n{text}"
             )
             content = response.text.strip()
-            match = _JSON_RE.search(content)
-            if match:
-                data = json.loads(match.group())
+            json_block = _find_json(content)
+            if json_block:
+                data = json.loads(json_block)
                 if isinstance(data, list):
                     return [str(x).lower() for x in data]
         except Exception:  # noqa: BLE001
@@ -59,9 +77,9 @@ class GeminiClient:
                 self.model.generate_content, f"{prompt}\n\n{', '.join(words)}"
             )
             content = response.text.strip()
-            match = _JSON_RE.search(content)
-            if match:
-                data = json.loads(match.group())
+            json_block = _find_json(content)
+            if json_block:
+                data = json.loads(json_block)
                 if isinstance(data, dict):
                     return {
                         k.lower(): [str(x).lower() for x in v]

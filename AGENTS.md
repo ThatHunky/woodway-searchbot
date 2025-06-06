@@ -82,6 +82,7 @@ Guidelines:
 2. **Fail‑fast CI** — run linters, formatters, tests, secret‑scans, and SCA (Software Composition Analysis) on every PR.
 3. **Flaky tests** — quarantine within 24 h, auto‑assign maintainer label `flake`.
 4. **Build provenance** — produce build artefacts with SLSA‑compliant provenance (§6).
+5. **Consistent formatting** — run `ruff format` before committing; CI rejects unformatted files.
 
 ---
 

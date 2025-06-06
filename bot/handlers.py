@@ -24,6 +24,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Iterable
 import os
+import inspect
 
 from .config import Config
 from .gemini import GeminiClient
@@ -285,31 +286,22 @@ async def handle_text(
     state: FSMContext,
     feedback: FeedbackStore,
 ) -> None:
+    try:
+        keywords, confidence = await gemini.interpret(
+            message.text, indexer.index.keys()
+        )
+    except Exception:  # noqa: BLE001 - fallback to extract
+        result = gemini.extract(message.text, indexer.index.keys())
+        keywords = await result if inspect.isawaitable(result) else result
+        confidence = rate_confidence(keywords)
 
-    keywords = await gemini.extract(message.text, indexer.index.keys())
     if not keywords:
         await _safe_answer(message, "Нічого не знайшов 🤷")
         return
 
-    await synonyms.ensure(keywords, gemini)
-    if rate_confidence(keywords) != "high":
+    user_id = message.from_user.id if message.from_user else 0
+    if confidence != "high":
         await _ask_clarification(message, keywords)
-        return
-
-    want_originals = _wants_originals(message.text)
-    pending_raw: list[str] = []
-    results: list[str] = []
-
-    for kw in keywords:
-        total = len(indexer.index.get(kw, []))
-        if total > _BROAD_QUERY_THRESHOLD:
-
-            await _safe_answer(
-                message,
-                f"Я правильно зрозумів, ви шукаєте: {', '.join(keywords)}? (Так/Ні)",
-            )
-        else:
-            await _safe_answer(message, "Не впевнений, уточніть, будь ласка, запит.")
         _pending_queries[user_id] = {"keywords": keywords, "text": message.text}
         await state.set_state(Clarify.waiting)
         return
