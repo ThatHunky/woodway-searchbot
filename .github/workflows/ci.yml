@@ -22,6 +22,7 @@ jobs:
         run: |
           pip install uv
           uv pip install -r requirements.txt --system
+          uv pip install ruff --system
 
       - name: Lint & Format
         run: |
