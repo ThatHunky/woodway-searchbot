@@ -47,12 +47,11 @@ _RAW_EXTS = {
 
 # User-facing messages for easy localisation
 MSG_RAW_PROMPT = (
-    "There are RAW files (e.g., Nikon .NEF) available. Do you want to receive "
-    "them as documents? (Yes/No)"
+    "Доступні RAW-файли (наприклад, Nikon .NEF). Надіслати їх як документи? (Так/Ні)"
 )
-MSG_SKIP_RAW = "Skipping RAW files."
-MSG_TOO_LARGE = "File {name} is too large for Telegram (>50 MB)."
-MSG_CANNOT_SEND = "Could not send file {name}."
+MSG_SKIP_RAW = "Пропускаю RAW-файли."
+MSG_TOO_LARGE = "Файл {name} завеликий для Telegram (>50 МБ)."
+MSG_CANNOT_SEND = "Не вдалося надіслати файл {name}."
 
 
 class RawConfirm(StatesGroup):
@@ -117,7 +116,7 @@ async def _safe_answer(message: Message, text: str, **kwargs) -> None:
 async def start_cmd(message: Message) -> None:
     await _safe_answer(
         message,
-        "Send me a wood species name or synonym, and I'll return matching photos.",
+        "Надішліть назву породи дерева або синонім, і я пришлю відповідні фото.",
     )
 
 
@@ -127,13 +126,13 @@ async def force_index_cmd(message: Message, indexer: Indexer) -> None:
     now = monotonic()
     last = _force_index_cooldowns.get(user_id, -_COOLDOWN_SECONDS)
     if now - last < _COOLDOWN_SECONDS and last != -_COOLDOWN_SECONDS:
-        await _safe_answer(message, "Please wait before requesting indexing again.")
+        await _safe_answer(message, "Зачекайте, будь ласка, перед повторним запуском індексації.")
         return
     _force_index_cooldowns[user_id] = now
     if await indexer.build_index():
-        await _safe_answer(message, "Indexing started.")
+        await _safe_answer(message, "Почато індексацію.")
     else:
-        await _safe_answer(message, "Indexing is already running.")
+        await _safe_answer(message, "Індексація вже виконується.")
 
 
 @router.message(Command("indexstatus"))
@@ -143,7 +142,7 @@ async def index_status_cmd(message: Message, indexer: Indexer) -> None:
         if indexer.last_index_time
         else "never"
     )
-    await _safe_answer(message, f"Keywords: {len(indexer.index)}\nLast updated: {last}")
+    await _safe_answer(message, f"Ключових слів: {len(indexer.index)}\nОстаннє оновлення: {last}")
 
 
 @router.message(F.text)
@@ -170,7 +169,7 @@ async def handle_text(
         if total > _BROAD_QUERY_THRESHOLD:
             await _safe_answer(
                 message,
-                f"Too many results for '{kw}'. Please provide more details or another keyword.",
+                f"Забагато результатів для '{kw}'. Уточніть запит або вкажіть інше слово.",
             )
             continue
         results = search_keyword(kw, indexer.index, query_text=message.text)

@@ -154,13 +154,13 @@ class TestHandlers(AsyncioTestCase):
         self.indexer.build_index = AsyncMock(return_value=True)
         await force_index_cmd(self.message, self.indexer)
         self.indexer.build_index.assert_called_once()
-        self.message.answer.assert_called_once_with("Indexing started.")
+        self.message.answer.assert_called_once_with("Почато індексацію.")
 
     async def test_force_index_cmd_already_running(self):
         self.indexer.build_index = AsyncMock(return_value=False)
         await force_index_cmd(self.message, self.indexer)
         self.indexer.build_index.assert_called_once()
-        self.message.answer.assert_called_once_with("Indexing is already running.")
+        self.message.answer.assert_called_once_with("Індексація вже виконується.")
 
     @patch("bot.handlers.monotonic")
     async def test_force_index_cmd_cooldown(self, mock_time):
@@ -170,7 +170,7 @@ class TestHandlers(AsyncioTestCase):
         await force_index_cmd(self.message, self.indexer)
         self.assertEqual(self.indexer.build_index.call_count, 1)
         self.message.answer.assert_called_with(
-            "Please wait before requesting indexing again."
+            "Зачекайте, будь ласка, перед повторним запуском індексації."
         )
 
     async def test_index_status_cmd(self):
