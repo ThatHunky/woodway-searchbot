@@ -24,6 +24,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Iterable
 import os
+from loguru import logger
 
 from .config import Config
 from .gemini import GeminiClient
@@ -36,6 +37,7 @@ from .search import (
     display_keyword,
     sanitize_query,
     suggest_keywords,
+    _query_tokens,
 )
 from .synonyms import SynonymStore
 from .gemini_parser import GeminiParser
@@ -197,6 +199,7 @@ async def _search_and_send(
     state: FSMContext,
     feedback: FeedbackStore,
 ) -> None:
+    logger.info("Search: %s -> %s", query_text, keywords)
     await synonyms.ensure(keywords, gemini)
 
     want_originals = _wants_originals(query_text)
@@ -234,13 +237,15 @@ async def _search_and_send(
                     f"Нічого не знайшов. Можливо: {opts}?",
                 )
             else:
-                await _safe_answer(message, "Нічого не знайшов 🤷")
+                await _safe_answer(message, "Нічого не знайшов \ud83e\udd89")
+        logger.info("No results for query: %s", query_text)
         user_id = message.from_user.id if message.from_user else 0
         await feedback.record_query(user_id, query_text, False)
         return
 
     first = results.pop(0)
     await _send_file(message, first, as_original=want_originals)
+    logger.info("Returned %s with %d more results", first, len(results))
     user_id = message.from_user.id if message.from_user else 0
     _user_results[user_id] = {
         "query": query_text,
@@ -313,7 +318,9 @@ async def handle_text(
     ]
     keywords = [k for k in keywords if k]
     if not keywords:
-        await _safe_answer(message, "Нічого не знайшов 🤷")
+        keywords = _query_tokens(clean_text)
+    if not keywords:
+        await _safe_answer(message, "Нічого не знайшов \ud83e\udd89")
         return
     confidence = parsed.get("confidence", "high")
     user_id = message.from_user.id if message.from_user else 0

@@ -26,6 +26,10 @@ async def main() -> None:
     config: Config = load_config()
     indexer = Indexer(config.share_path, Path("index.json"))
     await indexer.load_index()
+    if not indexer.index:
+        await indexer.build_index()
+        if not indexer.index:
+            logger.warning("Search index is empty after build")
     gemini = GeminiClient(config.gemini_api_key)
     parser = GeminiParser(config.gemini_api_key)
     feedback = FeedbackStore(Path("feedback.db"))
