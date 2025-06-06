@@ -1,10 +1,10 @@
-"""Telegram message handlers with RAW/original file support.
+"""Обробники повідомлень Telegram із підтримкою RAW та оригіналів.
 
-This module extends the basic photo search bot with logic for
-handling large files and optional RAW formats.  Photos over
-``10 MB`` are sent as documents and RAW files (.NEF, .CR2, etc.)
-are only shared on user request.  A simple FSM prompts the user
-when RAW files are available.
+Модуль розширює базовий бот пошуку фотографій логікою
+обробки великих файлів і необов'язкових RAW‑форматів.
+Фото понад ``10 MB`` надсилаються як документи,
+а RAW‑файли (.NEF, .CR2 тощо) передаються лише за запитом.
+Проста FSM повідомляє користувача про наявність таких файлів.
 """
 
 from __future__ import annotations
@@ -46,6 +46,8 @@ _BROAD_QUERY_THRESHOLD = 50
 
 # Store remaining results per user
 _user_results: dict[int, dict[str, object]] = {}
+# Store pending clarification per user
+_pending_queries: dict[int, dict[str, object]] = {}
 
 # Inline keyboard for feedback
 _FEEDBACK_KB = InlineKeyboardMarkup(
@@ -94,7 +96,13 @@ MSG_CANNOT_SEND = "Не вдалося надіслати файл {name}."
 
 
 class RawConfirm(StatesGroup):
-    """FSM state for confirming RAW file delivery."""
+    """Стан FSM для підтвердження відправки RAW‑файлів."""
+
+    waiting = State()
+
+
+class Clarify(StatesGroup):
+    """FSM state for clarifying ambiguous queries."""
 
     waiting = State()
 
@@ -140,7 +148,7 @@ async def _send_file(
     as_original: bool = False,
     keyboard: InlineKeyboardMarkup | None = _FEEDBACK_KB,
 ) -> None:
-    """Send ``path`` as photo or document with optional inline keyboard."""
+    """Надіслати ``path`` як фото або документ з інлайновою клавіатурою."""
 
     file_name = Path(path).name
     try:
@@ -169,12 +177,65 @@ async def _send_file(
 
 
 def _sanitize(text: str) -> str:
-    """Remove characters that may cause Telegram encoding errors."""
+    """Прибрати символи, які можуть спричинити помилки кодування Telegram."""
     return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
 
 
 async def _safe_answer(message: Message, text: str, **kwargs) -> None:
     await message.answer(_sanitize(text), **kwargs)
+
+
+async def _search_and_send(
+    message: Message,
+    keywords: list[str],
+    query_text: str,
+    gemini: GeminiClient,
+    indexer: Indexer,
+    synonyms: SynonymStore,
+    state: FSMContext,
+    feedback: FeedbackStore,
+) -> None:
+    await synonyms.ensure(keywords, gemini)
+
+    want_originals = _wants_originals(query_text)
+    pending_raw: list[str] = []
+    results: list[str] = []
+
+    for kw in keywords:
+        total = len(indexer.index.get(kw, []))
+        if total > _BROAD_QUERY_THRESHOLD:
+            await _safe_answer(
+                message,
+                f"Забагато результатів для '{kw}'. Уточніть запит або вкажіть інше слово.",
+            )
+            continue
+        for path in search_keyword(kw, indexer.index, query_text=query_text):
+            ext = Path(path).suffix.lower()
+            if ext in _RAW_EXTS and not want_originals:
+                pending_raw.append(path)
+                continue
+            results.append(path)
+
+    if not results:
+        if pending_raw and not want_originals:
+            await _safe_answer(message, MSG_RAW_PROMPT)
+            await state.update_data(raw_files=pending_raw)
+            await state.set_state(RawConfirm.waiting)
+        else:
+            await _safe_answer(message, "Нічого не знайшов 🤷")
+        return
+
+    first = results.pop(0)
+    await _send_file(message, first, as_original=want_originals)
+    user_id = message.from_user.id if message.from_user else 0
+    _user_results[user_id] = {
+        "query": query_text,
+        "remaining": results,
+        "raw": pending_raw,
+        "original": want_originals,
+        "current": first,
+    }
+    await feedback.record_query(user_id, query_text)
 
 
 @router.message(CommandStart())
@@ -224,6 +285,7 @@ async def handle_text(
     state: FSMContext,
     feedback: FeedbackStore,
 ) -> None:
+
     keywords = await gemini.extract(message.text, indexer.index.keys())
     if not keywords:
         await _safe_answer(message, "Нічого не знайшов 🤷")
@@ -241,43 +303,66 @@ async def handle_text(
     for kw in keywords:
         total = len(indexer.index.get(kw, []))
         if total > _BROAD_QUERY_THRESHOLD:
+
             await _safe_answer(
                 message,
-                f"Забагато результатів для '{kw}'. Уточніть запит або вкажіть інше слово.",
+                f"Я правильно зрозумів, ви шукаєте: {', '.join(keywords)}? (Так/Ні)",
             )
-            continue
-        for path in search_keyword(kw, indexer.index, query_text=message.text):
-            ext = Path(path).suffix.lower()
-            if ext in _RAW_EXTS and not want_originals:
-                pending_raw.append(path)
-                continue
-            results.append(path)
-
-    if not results:
-        if pending_raw and not want_originals:
-            await _safe_answer(message, MSG_RAW_PROMPT)
-            await state.update_data(raw_files=pending_raw)
-            await state.set_state(RawConfirm.waiting)
         else:
-            await _safe_answer(message, "Нічого не знайшов 🤷")
+            await _safe_answer(message, "Не впевнений, уточніть, будь ласка, запит.")
+        _pending_queries[user_id] = {"keywords": keywords, "text": message.text}
+        await state.set_state(Clarify.waiting)
         return
 
-    first = results.pop(0)
-    await _send_file(message, first, as_original=want_originals)
+    await _search_and_send(
+        message,
+        keywords,
+        message.text,
+        gemini,
+        indexer,
+        synonyms,
+        state,
+        feedback,
+    )
+
+
+@router.message(Clarify.waiting)
+async def clarify_response(
+    message: Message,
+    config: Config,
+    indexer: Indexer,
+    gemini: GeminiClient,
+    synonyms: SynonymStore,
+    state: FSMContext,
+    feedback: FeedbackStore,
+) -> None:
+    answer = message.text.lower().strip()
     user_id = message.from_user.id if message.from_user else 0
-    _user_results[user_id] = {
-        "query": message.text,
-        "remaining": results,
-        "raw": pending_raw,
-        "original": want_originals,
-        "current": first,
-    }
-    await feedback.record_query(user_id, message.text)
+    data = _pending_queries.pop(user_id, None)
+    if not data:
+        await state.clear()
+        await handle_text(message, config, indexer, gemini, synonyms, state, feedback)
+        return
+    if answer in {"yes", "y", "да", "так"} and data["keywords"]:
+        await state.clear()
+        await _search_and_send(
+            message,
+            data["keywords"],
+            data["text"],
+            gemini,
+            indexer,
+            synonyms,
+            state,
+            feedback,
+        )
+        return
+    await _safe_answer(message, "Добре, уточніть, будь ласка, запит.")
+    await state.clear()
 
 
 @router.message(RawConfirm.waiting)
 async def raw_confirm(message: Message, state: FSMContext) -> None:
-    """Handle user's decision on receiving RAW files."""
+    """Обробити рішення користувача щодо отримання RAW‑файлів."""
 
     answer = message.text.lower().strip()
     data = await state.get_data()

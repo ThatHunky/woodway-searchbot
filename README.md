@@ -1,21 +1,20 @@
 # Woodway Searchbot
 
-Telegram bot that serves wood species images using natural language queries. It indexes a mounted network share and leverages Google Gemini Flash to parse user text.
+Телеграм‑бот, що надає зображення порід дерев у відповідь на текстові запити. Він індексує мережеву теку та використовує Google Gemini Flash для аналізу повідомлень.
 
-## Features
-- Gemini Flash 2.5 via `google-generativeai` to extract keywords in English.
-- Fuzzy search on an auto-refreshed index of images.
-- Sends up to five random photos per keyword.
-- Runs in Docker and polls Telegram 24/7.
+## Можливості
+- Gemini Flash 2.5 через `google-generativeai` для виокремлення ключових слів.
+- Нечіткий пошук за актуальним індексом зображень.
+- Надсилає до пʼяти випадкових фото на запит.
+- Працює у Docker та постійно опитує Telegram.
 
-## Setup
-1. Copy `.env.example` to `.env` and fill in credentials.
-2. Ensure the Windows share is accessible and mounted via SMB.
-   On Windows, you can set `SHARE_PATH` to a drive letter like `P:`
-   and the bot will automatically normalize it to `P:\`.
-   The path must also be available inside the container. Map the share as a
-   volume in `docker-compose.yml` and point `SHARE_PATH` to the container
-   mount location, e.g.:
+## Налаштування
+1. Скопіюйте `.env.example` до `.env` і заповніть облікові дані.
+2. Переконайтеся, що мережевий ресурс доступний і змонтований через SMB.
+   У Windows можна вказати `SHARE_PATH` як букву диска, наприклад `P:`,
+   бот автоматично нормалізує шлях до `P:\`.
+   Цей шлях має бути доступний і всередині контейнера. Примонтуйте ресурс у `docker-compose.yml` та
+   задайте `SHARE_PATH` на шлях у контейнері, наприклад:
 
    ```yaml
    services:
@@ -24,43 +23,43 @@ Telegram bot that serves wood species images using natural language queries. It 
          - P:\\:/data/share:ro
    ```
 
-   Then set `SHARE_PATH=/data/share` in `.env`.
-3. Build and start with Docker Compose:
+   Після цього встановіть `SHARE_PATH=/data/share` у `.env`.
+3. Зберіть і запустіть через Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-The service will create `index.json` in the container and update it every ten minutes by default.
+Сервіс створить `index.json` у контейнері та оновлюватиме його кожні десять хвилин за замовчуванням.
 
-## Image Formats
-Supported extensions: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.tif`.
+## Формати зображень
+Підтримувані розширення: `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.tif`.
 
-## Testing
-The project includes a comprehensive test suite for all bot components. You can run the tests in several ways:
+## Тестування
+Проєкт містить повний набір тестів для всіх компонентів бота. Запустити їх можна декількома способами.
 
-### Running Tests Locally
-To run tests locally, execute:
+### Локальний запуск
+Щоб виконати тести локально, використайте:
 
 ```bash
 python -m unittest discover -s bot/tests
 ```
 
-### Running Tests with Docker
-To run tests in a Docker container, use the test-specific Docker Compose configuration:
+### Запуск у Docker
+Щоб запустити тести в контейнері, скористайтеся конфігурацією `docker-compose.test.yml`:
 
 ```bash
 docker compose -f docker-compose.test.yml up
 ```
 
-### Test Structure
-- `bot/tests/test_search.py`: Tests for the search functionality
-- `bot/tests/test_config.py`: Tests for configuration loading
-- `bot/tests/test_indexer.py`: Tests for the file indexer
-- `bot/tests/test_handlers.py`: Tests for Telegram message handlers
-- `bot/tests/test_gemini.py`: Tests for Gemini API client
+### Структура тестів
+- `bot/tests/test_search.py`: тести пошуку
+- `bot/tests/test_config.py`: тести завантаження конфігурації
+- `bot/tests/test_indexer.py`: тести індексатора
+- `bot/tests/test_handlers.py`: тести обробників повідомлень
+- `bot/tests/test_gemini.py`: тести клієнта Gemini
 
-The tests use mock objects to avoid making actual API calls during testing.
+Тести використовують обʼєкти‑заглушки, щоб уникнути реальних викликів API під час перевірки.
 
-## Continuous Integration
-This repository uses GitHub Actions to lint, format and test the code on every pull request. The `ci.yml` workflow installs dependencies with `uv` using the `--system` flag and explicitly installs `ruff`, `pytest` and `cyclonedx-bom`. Cosign is installed via the `sigstore/cosign-installer` action. The workflow then runs `ruff` for linting and formatting checks, executes the unit tests, generates the SBOM using `cyclonedx-py requirements -o sbom.xml requirements.txt` and signs it with `cosign sign-blob --yes --output-signature sbom.sig sbom.xml`.
+## Неперервна інтеграція
+Репозиторій використовує GitHub Actions для перевірки коду під час кожного pull request. `ci.yml` встановлює залежності через `uv`, інсталює `ruff`, `pytest` та `cyclonedx-bom`. Cosign встановлюється через `sigstore/cosign-installer`. Воркфлоу запускає `ruff` для лінтингу й форматування, виконує юніт‑тести, генерує SBOM командою `cyclonedx-py requirements -o sbom.xml requirements.txt` і підписує його `cosign sign-blob --yes --output-signature sbom.sig sbom.xml`.

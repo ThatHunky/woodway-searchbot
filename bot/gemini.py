@@ -9,13 +9,13 @@ import google.generativeai as genai
 from loguru import logger
 
 PROMPT = (
-    "Extract target wood species or synonyms in lowercase English transliteration "
-    "(e.g. \u0430\u043a\u0430\u0446\u0456\u044f \u2192 acacia). "
-    "Respond only with a raw JSON array of strings. If nothing is found return an empty array."
+    "Витягніть назви порід дерев або синоніми латиницею "
+    "(наприклад, \u0430\u043a\u0430\u0446\u0456\u044f \u2192 acacia). "
+    "Відповідайте лише сирим JSON-масивом рядків. Якщо нічого не знайдено, поверніть порожній масив."
 )
 
-# Gemini occasionally wraps the JSON array in markdown code fences. This regex
-# helps us locate the array in a best-effort manner.
+# Gemini іноді обгортає JSON‑масив у Markdown-блок.
+# Цей регекс допомагає його знайти.
 _JSON_RE = re.compile(r"\[.*?\]", re.S)
 
 
@@ -36,7 +36,7 @@ class GeminiClient:
                 if isinstance(data, list):
                     return [str(x).lower() for x in data]
         except Exception:  # noqa: BLE001
-            logger.exception("Gemini extraction failed")
+            logger.exception("Помилка отримання даних з Gemini")
         return self._fallback_regex(text, known)
 
     @staticmethod
@@ -49,10 +49,10 @@ class GeminiClient:
         return found
 
     async def synonyms(self, words: Iterable[str]) -> dict[str, list[str]]:
-        """Return synonyms for each word using Gemini."""
+        """Повернути синоніми для кожного слова за допомогою Gemini."""
         prompt = (
-            "For each term provide common synonyms or translations in Ukrainian, English and Russian. "
-            "Respond with a JSON object mapping the term to an array of synonyms."
+            "Для кожного терміна надайте поширені синоніми або переклади українською, англійською та російською. "
+            "Відповідайте JSON-об'єктом, що зіставляє термін з масивом синонімів."
         )
         try:
             response = await asyncio.to_thread(
@@ -69,5 +69,13 @@ class GeminiClient:
                         if isinstance(v, list)
                     }
         except Exception:  # noqa: BLE001
-            logger.exception("Gemini synonym query failed")
+            logger.exception("Помилка отримання синонімів з Gemini")
         return {}
+
+    async def interpret(self, text: str, known: Iterable[str]) -> tuple[list[str], str]:
+        """Return extracted keywords and a confidence level."""
+        keywords = await self.extract(text, known)
+        if not keywords:
+            return [], "low"
+        confidence = "high" if len(keywords) == 1 else "medium"
+        return keywords, confidence

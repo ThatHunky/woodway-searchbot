@@ -22,19 +22,19 @@ class TestSearch(unittest.TestCase):
         }
 
     def test_synonym_expansion(self):
-        """English keywords should match Ukrainian tokens via synonyms."""
+        """Англійські ключові слова мають знаходити українські токени через синоніми."""
         self.mock_index["дуб"] = ["path/to/ua_oak.jpg"]
         results = search_keyword("oak", self.mock_index, limit=5)
         self.assertIn("path/to/ua_oak.jpg", results)
 
     def test_material_synonyms(self):
-        """Material terms should be mapped across languages."""
+        """Назви матеріалів мають відповідати різним мовам."""
         self.mock_index["дошка"] = ["path/to/board_oak.jpg"]
         results = search_keyword("board", self.mock_index, limit=5)
         self.assertIn("path/to/board_oak.jpg", results)
 
     def test_stock_filtering(self):
-        """Stock images are returned only when requested."""
+        """Стокові зображення повертаються лише за запитом."""
         index = {
             "oak": ["path/Stock/oak1.jpg", "path/oak2.jpg"],
         }
@@ -46,26 +46,26 @@ class TestSearch(unittest.TestCase):
         self.assertIn("path/Stock/oak1.jpg", results_with_stock)
 
     def test_search_keyword_exact_match(self):
-        """Test searching for an exact keyword match."""
+        """Тест пошуку за точним ключем."""
         results = search_keyword("oak", self.mock_index, limit=2)
         self.assertGreaterEqual(len(results), 2)
         for path in results:
             self.assertTrue("oak" in path)
 
     def test_search_keyword_fuzzy_match(self):
-        """Test searching with fuzzy matching."""
+        """Тест пошуку з нечітким співставленням."""
         results = search_keyword("oaks", self.mock_index, limit=2)
         self.assertGreaterEqual(len(results), 2)
         for path in results:
             self.assertTrue("oak" in path)
 
     def test_search_keyword_no_match(self):
-        """Test searching for a keyword with no matches."""
+        """Тест пошуку, який не знаходить збігів."""
         results = search_keyword("walnut", self.mock_index, limit=2)
         self.assertEqual(len(results), 0)
 
     def test_search_keywords_multiple(self):
-        """Test searching for multiple keywords."""
+        """Тест пошуку за кількома ключовими словами."""
         results = search_keywords(["oak", "maple"], self.mock_index, limit=4)
         self.assertGreaterEqual(len(results), 2)
         self.assertTrue(any("oak" in path for path in results))

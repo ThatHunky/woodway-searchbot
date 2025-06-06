@@ -1,29 +1,29 @@
-"""Utilities for fuzzy searching the indexed photo share.
 
-``share_structure.txt`` reveals that photos are organised by wood species under
-folders like ``Дошка`` or ``Ламель`` with optional brand subfolders
-(``WoodWay``/``WW``/``Шпон в Україні``).  A separate ``Stock`` tree contains
-generic background images.  Names appear in Ukrainian, russian or occasionally
-English.
+"""Утиліти для нечіткого пошуку в індексованій фототеці.
 
-Queries can be in English or transliterated Ukrainian, so the index stores both
-the original token and its ASCII transliteration.  A small synonym map links
-common English species names to their Ukrainian equivalents (e.g. ``oak`` →
-``дуб``).
+Файл ``share_structure.txt`` показує, що фото впорядковані за породами дерев у
+папках типу ``Дошка`` чи ``Ламель`` з необов'язковими брендованими підпапками
+(``WoodWay``/``WW``/``Шпон в Україні``). Окрема гілка ``Stock`` містить
+загальні зображення. Назви трапляються українською, російською або часом
+англійською.
 
-Filtering rules:
+Запити можуть бути англійською або транслітерованою українською, тому індекс
+зберігає як оригінальні токени, так і їхню ASCII‑транслітерацію. Невелика
+карта синонімів пов'язує поширені англійські назви порід із українськими
+(наприклад, ``oak`` → ``дуб``).
 
-* **Board images by default** – paths containing stock keywords are skipped
-  unless the query explicitly requests stock photos.
-* **Logo filtering** – images containing ``logo`` are ignored unless the query
-  looks brand related (``WoodWay``, ``WW``, ``Baykal`` or ``Шпон``).
-* **Brand prioritisation** – when a brand is requested, photos from brand
-  folders are returned first.
+Правила фільтрації:
 
-These utilities expose ``search_keyword`` and ``search_keywords`` which apply
-the above heuristics using ``rapidfuzz.token_set_ratio`` for matching.
+* **Щити за замовчуванням** – шляхи зі стоковими словами ігноруються, доки
+  користувач явно не запросить стокові фото.
+* **Фільтрація логотипів** – зображення з ``logo`` ігноруються, поки запит не
+  містить ознак бренду (``WoodWay``, ``WW``, ``Baykal`` чи ``Шпон``).
+* **Пріоритет бренду** – коли запит містить бренд, фото з брендованих папок
+  повертаються першими.
+
+Ці утиліти надають ``search_keyword`` і ``search_keywords``, що
+застосовують наведені евристики із ``rapidfuzz.token_set_ratio``.
 """
-
 from __future__ import annotations
 
 import random
@@ -73,7 +73,7 @@ _synonym_store: SynonymStore | None = None
 
 
 def set_synonym_store(store: SynonymStore) -> None:
-    """Configure dynamic synonym store."""
+    """Налаштувати динамічне сховище синонімів."""
     global _synonym_store
     _synonym_store = store
 
@@ -116,7 +116,7 @@ def rate_confidence(words: Iterable[str]) -> str:
 
 
 def _expand_keyword(keyword: str) -> set[str]:
-    """Return keyword plus synonyms for fuzzy matching."""
+    """Повернути ключове слово разом із синонімами для нечіткого пошуку."""
     lower = keyword.lower()
     tokens: set[str] = {lower}
     if _synonym_store:
@@ -159,11 +159,9 @@ def search_keyword(
     *,
     query_text: str = "",
 ) -> list[str]:
-    """Return up to ``limit`` paths matching ``keyword``.
+    """Повернути до ``limit`` шляхів, що відповідають ``keyword``.
 
-    ``query_text`` is the full user query.  It is inspected for ``stock`` or
-    brand related words which influence the filtering logic.
-    """
+    ``query_text`` — повний запит користувача. Він перевіряється на наявність ``stock`` або брендових слів, що впливають на фільтрацію."""
 
     allow_stock = _is_stock_query(query_text)
     brand_query = _is_brand_query(query_text)
@@ -202,11 +200,9 @@ def search_keywords(
     *,
     query_text: str = "",
 ) -> list[str]:
-    """Search multiple ``keywords`` within ``index``.
+    """Шукати декілька ``keywords`` у ``index``.
 
-    ``query_text`` is forwarded to :func:`search_keyword` to ensure consistent
-    filtering behaviour across all keywords.
-    """
+    ``query_text`` передається до :func:`search_keyword`, щоб фільтрація для всіх ключових слів була однаковою."""
 
     result_list: list[str] = []
     seen: set[str] = set()

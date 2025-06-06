@@ -11,13 +11,13 @@ from bot.tests.run_tests import AsyncioTestCase
 
 class TestIndexer(AsyncioTestCase):
     def test_tokenize(self):
-        """Test the tokenization function."""
+        """Тест функції токенізації."""
         text = "Oak-123 Maple/Cherry"
         tokens = list(_tokenize(text))
         self.assertEqual(tokens, ["oak", "123", "maple", "cherry"])
 
     def test_image_exts(self):
-        """Test that IMAGE_EXTS contains expected extensions."""
+        """Тест наявності очікуваних розширень у IMAGE_EXTS."""
         self.assertIn(".jpg", IMAGE_EXTS)
         self.assertIn(".jpeg", IMAGE_EXTS)
         self.assertIn(".png", IMAGE_EXTS)
@@ -26,14 +26,14 @@ class TestIndexer(AsyncioTestCase):
         self.assertIn(".tif", IMAGE_EXTS)
 
     def test_indexer_init(self):
-        """Test Indexer initialization."""
+        """Тест ініціалізації Indexer."""
         indexer = Indexer("/test/path", "index.json")
         self.assertEqual(indexer.share_path, Path("/test/path"))
         self.assertEqual(indexer.index_file, Path("index.json"))
         self.assertEqual(indexer.index, {})
 
     def test_windows_drive_normalization(self):
-        """Windows drive letters should expand to root path."""
+        """Букви дисків Windows мають розширюватися до кореневого шляху."""
         idx = Indexer("P:", "index.json")
         if os.name == "nt":
             self.assertEqual(idx.share_path, Path("P:\\"))
@@ -41,7 +41,7 @@ class TestIndexer(AsyncioTestCase):
             self.assertEqual(idx.share_path, Path("P:"))
 
     async def test_build_index_missing_share(self):
-        """Return False when share path is not available."""
+        """Повертається False, коли шлях до шару недоступний."""
         indexer = Indexer("/unlikely/path/doesnotexist", "index.json")
         result = await indexer.build_index()
         self.assertFalse(result)
@@ -49,7 +49,7 @@ class TestIndexer(AsyncioTestCase):
     @patch("os.walk")
     @patch("asyncio.to_thread")
     async def test_build_index(self, mock_to_thread, mock_walk):
-        """Test the build_index method."""
+        """Тест методу build_index."""
         # Setup mocks
         with tempfile.TemporaryDirectory() as share_dir:
             mock_walk.return_value = [
@@ -81,7 +81,7 @@ class TestIndexer(AsyncioTestCase):
                 indexer._save_index.assert_called_once()
 
     async def test_load_index(self):
-        """Test loading index from file."""
+        """Тест завантаження індексу з файлу."""
         # Create temp file with test index
         with tempfile.NamedTemporaryFile(mode="w+", delete=False) as temp_file:
             test_index = {
@@ -105,7 +105,7 @@ class TestIndexer(AsyncioTestCase):
             os.unlink(temp_file_path)
 
     def test_save_index(self):
-        """Test saving index to file."""
+        """Тест збереження індексу у файл."""
         # Create temp file for index
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file_path = temp_file.name
